@@ -20,6 +20,8 @@ const POST_FRAG = /* glsl */ `
   uniform float uLevels;
   uniform float uFade;
   uniform float uDesat;
+  uniform float uAlarm;
+  uniform vec3 uAlarmColor;
   varying vec2 vUv;
 
   float bayer4(vec2 p) {
@@ -41,6 +43,10 @@ const POST_FRAG = /* glsl */ `
     c = c * 0.96 + vec3(0.008, 0.010, 0.016);
     float luma = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(c, vec3(luma), uDesat);
+
+    // Emergency lighting wash (containment breach alarms).
+    vec3 alarmTint = vec3(dot(c, vec3(0.35, 0.5, 0.15))) * uAlarmColor * 1.7 + uAlarmColor * 0.03;
+    c = mix(c, alarmTint, uAlarm);
 
     // Vignette.
     vec2 q = vUv - 0.5;
@@ -86,6 +92,8 @@ export class RetroRenderer {
       uLevels: { value: 31.0 },
       uFade: { value: 1.0 },
       uDesat: { value: 0.0 },
+      uAlarm: { value: 0.0 },
+      uAlarmColor: { value: new THREE.Vector3(1, 0.25, 0.2) },
     };
     const mat = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
@@ -124,6 +132,11 @@ export class RetroRenderer {
 
   setDesaturate(v) {
     this.uniforms.uDesat.value = v;
+  }
+
+  setAlarm(v, color) {
+    this.uniforms.uAlarm.value = v;
+    if (color) this.uniforms.uAlarmColor.value.set(color[0], color[1], color[2]);
   }
 
   /** Register a camera whose aspect ratio should follow the canvas. */

@@ -49,7 +49,45 @@ export class UI {
       fade: $('fade'),
       padStatus: $('pad-status'),
       pauseInfo: $('pause-info'),
+      credits: $('credits-value'),
+      creditsDelta: $('credits-delta'),
+      itemHeld: $('item-held'),
+      tracker: $('tracker'),
+      trKind: $('tr-kind'),
+      trGiver: $('tr-giver'),
+      trTitle: $('tr-title'),
+      trDone: $('tr-done'),
+      trCurrent: $('tr-current'),
+      trProgress: $('tr-progress'),
+      trCheck: $('tr-check'),
+      trDetail: $('tr-detail'),
+      trOptional: $('tr-optional'),
+      notify: $('notify'),
+      banner: $('banner'),
+      bannerTitle: $('banner-title'),
+      bannerSub: $('banner-sub'),
+      radio: $('radio'),
+      radioTag: $('radio-tag'),
+      radioSpeaker: $('radio-speaker'),
+      radioText: $('radio-text'),
+      marker: $('marker'),
+      markerDist: $('marker-dist'),
+      hold: $('hold'),
+      holdFill: $('hold-fill'),
+      damage: $('damage'),
+      health: $('health'),
+      profileCredits: $('profile-credits'),
+      resultTitle: $('result-title'),
+      resultSub: $('result-sub'),
+      resultStats: $('result-stats'),
     };
+    this.notes = [];
+    this.radioTimer = 0;
+    this.damageLevel = 0;
+    this.creditsDeltaTimer = 0;
+    this.trackerKey = '';
+    for (let i = 0; i < STAMINA_SEGMENTS; i++) this.el.health.appendChild(document.createElement('i'));
+    this.healthSegs = [...this.el.health.children];
 
     $('game-title').textContent = GAME_TITLE;
     $('game-subtitle').textContent = GAME_SUBTITLE;
@@ -127,6 +165,7 @@ export class UI {
       s.classList.toggle('active', s.dataset.screen === name);
     }
     this.el.menu.classList.toggle('paused', this.stack[0] === 'pause');
+    this.el.menu.classList.toggle('result', this.stack[0] === 'result');
     if (name === 'title') this.updatePadStatus();
     const items = this.items();
     // Default focus: first role card the player has not seen, else first item.
@@ -222,6 +261,9 @@ export class UI {
         break;
       case 'quit':
         this.emit('quit');
+        break;
+      case 'new-shift':
+        this.emit('new-shift');
         break;
       default:
         break;
@@ -473,12 +515,239 @@ export class UI {
   clearHudMessages() {
     this.toastTimer = 0;
     this.zoneTimer = 0;
+    this.radioTimer = 0;
+    this.damageLevel = 0;
     this.el.toast.classList.remove('show');
     this.el.zone.classList.remove('show');
+    this.el.radio.classList.remove('show');
+    for (const n of this.notes) n.el.remove();
+    this.notes = [];
+    this.el.notify.innerHTML = '';
+    this.banner(null);
+    this.setMarker(null);
+    this.setHold(0);
+    this.trackerKey = '';
+    this.el.tracker.classList.add('hidden');
     this.setPrompt(null);
   }
 
+  // ---------------------------------------------------------------------------
+  // Objectives, credits, notifications, radio
+  // ---------------------------------------------------------------------------
+  setProfile(profile) {
+    this.el.profileCredits.textContent = `Credits: ${profile.credits.toLocaleString()} CR · Shifts: ${profile.shifts}`;
+  }
+
+  setCredits(total, delta) {
+    this.el.credits.textContent = total.toLocaleString();
+    if (delta) {
+      this.el.creditsDelta.textContent = `${delta > 0 ? '+' : ''}${delta}`;
+      this.el.creditsDelta.classList.toggle('neg', delta < 0);
+      this.el.creditsDelta.classList.add('show');
+      this.creditsDeltaTimer = 2.2;
+    }
+  }
+
+  setItem(text) {
+    this.el.itemHeld.classList.toggle('hidden', !text);
+    this.el.itemHeld.textContent = text || '';
+  }
+
+  /** Render the objective tracker from ObjectiveManager.view(). */
+  setTracker(view) {
+    const key = JSON.stringify(view);
+    if (key === this.trackerKey) return;
+    this.trackerKey = key;
+    const p = view.primary;
+    const e = this.el;
+    if (!p && !view.optional.length) {
+      e.tracker.classList.add('hidden');
+      return;
+    }
+    e.tracker.classList.remove('hidden');
+    e.tracker.classList.toggle('emergency', !!p && p.kind === 'emergency');
+    if (p) {
+      e.trKind.textContent = p.kind === 'emergency' ? 'EMERGENCY' : 'ASSIGNMENT';
+      e.trGiver.textContent = p.giver || '';
+      e.trTitle.textContent = p.title;
+      e.trDone.innerHTML = '';
+      for (const d of p.done) {
+        const li = document.createElement('li');
+        li.textContent = d;
+        e.trDone.appendChild(li);
+      }
+      e.trCurrent.classList.toggle('waiting', !p.current);
+      const cur = p.current || 'Awaiting further instructions';
+      if (p.current && cur !== this.lastCurrent) {
+        // Briefly highlight a newly issued objective instead of a popup.
+        e.trCurrent.classList.remove('fresh');
+        void e.trCurrent.offsetWidth;
+        e.trCurrent.classList.add('fresh');
+      }
+      this.lastCurrent = cur;
+      e.trCurrent.textContent = cur;
+      e.trProgress.textContent = p.progress || '';
+      e.trDetail.textContent = p.detail || '';
+      e.trCheck.innerHTML = '';
+      if (p.checklist) {
+        for (const c of p.checklist) {
+          const li = document.createElement('li');
+          li.textContent = c.text;
+          if (c.done) li.className = 'done';
+          e.trCheck.appendChild(li);
+        }
+      }
+    } else {
+      e.trKind.textContent = 'NO ACTIVE ASSIGNMENT';
+      e.trGiver.textContent = '';
+      e.trTitle.textContent = '';
+      e.trDone.innerHTML = '';
+      e.trCurrent.textContent = 'Awaiting instructions';
+      e.trCurrent.classList.add('waiting');
+      e.trProgress.textContent = '';
+      e.trDetail.textContent = '';
+      e.trCheck.innerHTML = '';
+    }
+    e.trOptional.innerHTML = '';
+    for (const o of view.optional) {
+      const div = document.createElement('div');
+      div.textContent = `${o.title}${o.progress ? ` (${o.progress})` : ''}`;
+      e.trOptional.appendChild(div);
+    }
+  }
+
+  /** Slide-in notification card. type sets the color scheme. */
+  notify({ type = 'objective', title, text, sub, credits }) {
+    const div = document.createElement('div');
+    div.className = `note ${type}`;
+    const add = (cls, t) => {
+      if (!t) return;
+      const d = document.createElement('div');
+      d.className = cls;
+      d.textContent = t;
+      div.appendChild(d);
+    };
+    add('n-title', title);
+    add('n-text', text);
+    add('n-sub', sub);
+    if (credits) add('n-cr', `${credits > 0 ? '+' : ''}${credits} CR`);
+    this.el.notify.appendChild(div);
+    this.notes.push({ el: div, t: type === 'bonus' ? 3 : 4.5 });
+    while (this.notes.length > 3) {
+      const n = this.notes.shift();
+      n.el.remove();
+    }
+  }
+
+  radio(speaker, text, channel = 'voice', duration = 4) {
+    const tags = { pa: 'INTERCOM', radio: 'RADIO', voice: '', thought: '' };
+    const r = this.el.radio;
+    r.className = `radio show ${channel}`;
+    this.el.radioTag.textContent = tags[channel] || '';
+    this.el.radioSpeaker.textContent = channel === 'thought' ? '' : speaker;
+    this.el.radioText.textContent = channel === 'thought' ? `“${text}”` : text;
+    this.radioTimer = duration;
+  }
+
+  /** Event banner: big and centered at first, then tucked under the badge. */
+  banner(title, sub, style = 'red') {
+    if (!title) {
+      this.el.banner.classList.add('hidden');
+      this.bannerTimer = 0;
+      return;
+    }
+    this.el.banner.className = `banner ${style}`;
+    this.el.bannerTitle.textContent = title;
+    this.el.bannerSub.textContent = sub || '';
+    this.bannerTimer = 6;
+  }
+
+  /** m = { x, y, dist, edge, emergency } in CSS pixels, or null. */
+  setMarker(m) {
+    const el = this.el.marker;
+    if (!m) {
+      el.classList.add('hidden');
+      return;
+    }
+    el.className = `marker${m.edge ? ' edge' : ''}${m.emergency ? ' emergency' : ''}`;
+    el.style.left = `${m.x}px`;
+    el.style.top = `${m.y}px`;
+    this.el.markerDist.textContent = `${Math.round(m.dist)}m`;
+  }
+
+  setHold(p) {
+    this.el.hold.classList.toggle('hidden', !(p > 0));
+    this.el.holdFill.style.width = `${Math.min(100, p * 100)}%`;
+  }
+
+  setHealth(hp, max) {
+    const lit = Math.ceil((hp / max) * STAMINA_SEGMENTS - 0.001);
+    for (let i = 0; i < STAMINA_SEGMENTS; i++) this.healthSegs[i].classList.toggle('off', i >= lit);
+    this.el.health.classList.toggle('low', hp / max < 0.35);
+  }
+
+  damageFlash(amount) {
+    this.el.damage.classList.remove('pulse');
+    this.damageLevel = Math.min(1, this.damageLevel + Math.max(0.15, amount / 30));
+  }
+
+  pulse() {
+    this.el.damage.classList.add('pulse');
+    this.damageLevel = 0.8;
+  }
+
+  showResult(s) {
+    const titles = {
+      escaped: ['Escaped', 'You reached the surface. The Foundation will be looking for you.'],
+      complete: ['Shift Complete', 'Site-██ is secure. Report for duty tomorrow at 06:00.'],
+      terminated: ['Terminated', s.role.id === 'classd' ? 'Subject deceased. A replacement has been requested.' : 'Officer killed in the line of duty.'],
+    };
+    const [title, sub] = titles[s.result];
+    this.el.resultTitle.textContent = title;
+    this.el.resultTitle.style.color = s.result === 'terminated' ? '#ff6a50' : '';
+    this.el.resultSub.textContent = sub;
+    const mins = Math.floor(s.time / 60);
+    const secs = String(Math.floor(s.time % 60)).padStart(2, '0');
+    const row = (k, v, cls = '') => `<div><span class="k">${k}</span><span class="${cls}">${v}</span></div>`;
+    let html = '';
+    html += row('Personnel', `${s.role.name} · ${s.designation}`);
+    html += row('Shift length', `${mins}:${secs}`);
+    html += row('Objectives completed', s.completed, 'ok');
+    if (s.failed) html += row('Objectives failed', s.failed, 'bad');
+    html += row('Credits earned', `${s.credits >= 0 ? '+' : ''}${s.credits.toLocaleString()} CR`, 'cr');
+    html += row('Total credits', `${s.total.toLocaleString()} CR`, 'cr');
+    if (s.history.length) {
+      html += '<ul>' + s.history.map((h) => `<li>${h.status === 'complete' ? '✓' : '✗'} ${escapeHtml(h.title)}</li>`).join('') + '</ul>';
+    }
+    this.el.resultStats.innerHTML = html;
+    this.showLayer('menu');
+    this.openScreen('result', true);
+  }
+
   tick(dt) {
+    for (const n of this.notes) {
+      n.t -= dt;
+      if (n.t <= 0 && !n.out) {
+        n.out = true;
+        n.el.classList.add('out');
+        setTimeout(() => n.el.remove(), 700);
+      }
+    }
+    this.notes = this.notes.filter((n) => !n.out);
+    if (this.radioTimer > 0) {
+      this.radioTimer -= dt;
+      if (this.radioTimer <= 0) this.el.radio.classList.remove('show');
+    }
+    if (this.creditsDeltaTimer > 0) {
+      this.creditsDeltaTimer -= dt;
+      if (this.creditsDeltaTimer <= 0) this.el.creditsDelta.classList.remove('show');
+    }
+    if (this.bannerTimer > 0) {
+      this.bannerTimer -= dt;
+      if (this.bannerTimer <= 0) this.el.banner.classList.add('compact');
+    }
+    this.damageLevel = Math.max(0, this.damageLevel - dt * 1.2);
+    this.el.damage.style.opacity = this.damageLevel.toFixed(2);
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;
       if (this.toastTimer <= 0) this.el.toast.classList.remove('show');
@@ -492,4 +761,8 @@ export class UI {
       if (this.hintTimer <= 0) this.el.hint.classList.remove('show');
     }
   }
+}
+
+function escapeHtml(t) {
+  return String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }

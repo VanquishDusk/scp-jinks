@@ -49,6 +49,33 @@ export class Player {
     this.sprinting = false;
     this.moving = false;
     this._boxes = [];
+    this.maxHp = 100;
+    this.hp = 100;
+    this.dead = false;
+    this.damageTaken = 0;
+    this.lastHurt = -999;
+    this.clock = 0;
+    this.keycard = 0;
+    this.carrying = null;
+    this.onDamage = null;
+  }
+
+  damage(amount, source) {
+    if (this.dead || amount <= 0) return;
+    this.hp = Math.max(0, this.hp - amount);
+    this.damageTaken += amount;
+    this.lastHurt = this.clock;
+    this.lastSource = source;
+    if (this.onDamage) this.onDamage(amount, source);
+    if (this.hp <= 0) {
+      this.dead = true;
+      this.vel.set(0, 0, 0);
+    }
+  }
+
+  heal(amount) {
+    if (this.dead) return;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
   }
 
   spawn(x, y, z, yaw) {
@@ -65,6 +92,13 @@ export class Player {
     this.exhausted = false;
     this.onGround = false;
     this.landDip = 0;
+    this.hp = this.maxHp;
+    this.dead = false;
+    this.damageTaken = 0;
+    this.lastHurt = -999;
+    this.keycard = 0;
+    this.carrying = null;
+    this.deathT = 0;
     this.updateCamera(0, false);
   }
 
@@ -128,6 +162,10 @@ export class Player {
   }
 
   update(dt, input, settings) {
+    this.clock += dt;
+    // Slow natural recovery after a while without taking damage.
+    if (this.hp < this.maxHp && this.clock - this.lastHurt > 8) this.heal(dt * 1.5);
+
     // --- Look -------------------------------------------------------------
     const look = input.look(dt, settings.get('mouseSens'), settings.get('padSens'));
     this.yaw -= look.x * MOUSE_RAD;
@@ -251,6 +289,17 @@ export class Player {
   }
 
   updateCamera(dt, headBob, hSpeed = 0) {
+    if (this.dead) {
+      // Collapse to the floor.
+      this.deathT = Math.min(1, (this.deathT || 0) + dt * 1.6);
+      const e = this.deathT * this.deathT;
+      this.camera.position.set(this.pos.x, this.pos.y + this.eye * (1 - e) + 0.25 * e, this.pos.z);
+      this.camera.rotation.order = 'YXZ';
+      this.camera.rotation.y = this.yaw;
+      this.camera.rotation.x = this.pitch * (1 - e) + 0.35 * e;
+      this.camera.rotation.z = 1.2 * e;
+      return;
+    }
     this.eyeOffset += (0 - this.eyeOffset) * Math.min(1, dt * 14);
     this.landDip += (0 - this.landDip) * Math.min(1, dt * 7);
 

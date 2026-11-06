@@ -34,7 +34,35 @@
       <div class="badge-id" id="badge-id"></div>
       <div class="badge-clear" id="badge-clear"></div>
     </div>
+    <div id="credits" class="credits"><span class="cr-label">CREDITS</span> <span id="credits-value">0</span> CR<span id="credits-delta" class="cr-delta"></span></div>
+    <div id="item-held" class="item-held hidden"></div>
+
+    <div class="right-col">
+    <div id="tracker" class="tracker hidden">
+      <div class="tr-head"><span id="tr-kind">ASSIGNMENT</span><span id="tr-giver"></span></div>
+      <div id="tr-title" class="tr-title"></div>
+      <ul id="tr-done" class="tr-done"></ul>
+      <div id="tr-current" class="tr-current"></div>
+      <div id="tr-progress" class="tr-progress"></div>
+      <ul id="tr-check" class="tr-check"></ul>
+      <div id="tr-detail" class="tr-detail"></div>
+      <div id="tr-optional" class="tr-optional"></div>
+    </div>
+    <div id="notify" class="notify"></div>
+    </div>
+    <div id="banner" class="banner hidden"><div id="banner-title"></div><div id="banner-sub"></div></div>
+    <div id="radio" class="radio"><span id="radio-tag" class="radio-tag"></span><span id="radio-speaker" class="radio-speaker"></span><span id="radio-text"></span></div>
+    <div id="marker" class="marker hidden"><div class="marker-diamond"></div><div id="marker-dist" class="marker-dist"></div></div>
+    <div id="hold" class="hold hidden"><div id="hold-fill" class="hold-fill"></div></div>
+    <div id="damage" class="damage"></div>
+
     <div class="meters">
+      <div class="meter">
+        <svg class="meter-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" d="M6 2h4v4h4v4h-4v4H6v-4H2V6h4z"/>
+        </svg>
+        <div class="segments health" id="health"></div>
+      </div>
       <div class="meter">
         <svg class="meter-icon" viewBox="0 0 16 16" aria-hidden="true">
           <path fill="currentColor" d="M9 1h2v2H9zM8 4h3v1h1v1h2v2h-3V7h-1v3l2 2v3h-2v-2l-2-2-1 2-2 2H3v-1l2-2 1-3V7H5v2H3V6h2V5h3z"/>
@@ -77,6 +105,7 @@
         <div class="item" data-action="about">About</div>
       </nav>
       <div class="footer">
+        <span id="profile-credits"></span>
         <span id="version"></span>
         <span id="pad-status"></span>
         <span id="touch-note"></span>
@@ -112,7 +141,8 @@
           <tr><td>Sprint</td><td>Shift</td><td>LB / L3</td></tr>
           <tr><td>Crouch</td><td>C</td><td>B</td></tr>
           <tr><td>Jump</td><td>Space</td><td>A</td></tr>
-          <tr><td>Interact (doors)</td><td>E / F / Left click</td><td>X / RB</td></tr>
+          <tr><td>Interact</td><td>E / F / Left click</td><td>X / RB</td></tr>
+          <tr><td>Terminals &amp; repairs</td><td>Hold E</td><td>Hold X</td></tr>
           <tr><td>Pause</td><td>Esc / P</td><td>Start</td></tr>
           <tr><td>Menus</td><td>Arrows / WASD · Enter · Esc</td><td>D-pad · A · B</td></tr>
         </tbody>
@@ -125,10 +155,10 @@
     <section class="screen" data-screen="about">
       <h2>About</h2>
       <div class="about">
-        <p><b>SCP: JINKS</b> is an early, single-player foundation build of a retro voxel
-        SCP Foundation facility simulation. Walk the halls of Site-██ as Class-D personnel,
-        a security guard or facility staff. Containment breaches and other events are
-        planned for future updates.</p>
+        <p><b>SCP: JINKS</b> is a single-player retro voxel SCP Foundation facility
+        simulation. Work a shift at Site-██ as Class-D personnel or as a security guard:
+        take assignments from the staff around you, earn Credits, and survive when
+        containment fails.</p>
         <p>This game is silent by design: it has no audio.</p>
         <p class="small">Based on the SCP Foundation (scp-wiki.wikidot.com), licensed under
         <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>.
@@ -137,6 +167,16 @@
       </div>
       <nav class="items">
         <div class="item" data-action="back">Back</div>
+      </nav>
+    </section>
+
+    <section class="screen" data-screen="result">
+      <h2 id="result-title">Shift Complete</h2>
+      <div class="subtitle" id="result-sub"></div>
+      <div class="result-stats" id="result-stats"></div>
+      <nav class="items">
+        <div class="item" data-action="new-shift">Start New Shift</div>
+        <div class="item" data-action="quit">Main Menu</div>
       </nav>
     </section>
 

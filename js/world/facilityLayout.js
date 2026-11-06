@@ -30,7 +30,7 @@ export function buildFacility(f) {
     f.prop('toilet', cx + 1.2, 49.05, { face: 's' });
     f.prop('sink', cx + 2.7, 48.78, { face: 's' });
     f.sign({ x: cx + 2.5, y: 6.7, z: 60, face: 's', lines: [`D-0${n}`], style: 'orange' });
-    classdSpawns.push({ x: cx + 3.5, z: 52.5, yaw: 180 });
+    classdSpawns.push({ x: cx + 3.5, z: 52.5, yaw: 180, cell: `Cell D-0${n}`, inside: [cx + 2.5, 57.3], outside: [cx + 2.5, 61.8] });
 
     // South row (D-05..D-08): doors in wall z = 70
     const s = i + 5;
@@ -41,9 +41,9 @@ export function buildFacility(f) {
     f.prop('toilet', cx + 1.2, 80.95, { face: 'n' });
     f.prop('sink', cx + 2.7, 81.22, { face: 'n' });
     f.sign({ x: cx + 2.5, y: 6.7, z: 70, face: 'n', lines: [`D-0${s}`], style: 'orange' });
-    classdSpawns.push({ x: cx + 3.5, z: 77.5, yaw: 0 });
+    classdSpawns.push({ x: cx + 3.5, z: 77.5, yaw: 0, cell: `Cell D-0${s}`, inside: [cx + 2.5, 72.7], outside: [cx + 2.5, 68.2] });
   });
-  f.spawns.classd = classdSpawns.map((s) => ({ x: s.x, z: s.z, yaw: (s.yaw * Math.PI) / 180 }));
+  f.spawns.classd = classdSpawns.map((s) => ({ ...s, yaw: (s.yaw * Math.PI) / 180 }));
 
   f.floorDecal(52, 61, 56, 69, T.HAZARD);
   f.sign({ x: 56, y: 7.6, z: 65, face: 'w', lines: ['SECURITY CHECKPOINT', 'LEVEL 3 ONLY'], style: 'yellow' });
@@ -133,7 +133,7 @@ export function buildFacility(f) {
   f.prop('cabinet', 58, 53.9, { face: 'n' });
   f.prop('waterCooler', 71.5, 54, {});
   f.sign({ x: 65, y: 6.6, z: 44, face: 's', lines: ['SHIFT ROTA POSTED DAILY', 'REPORT ALL INCIDENTS'], style: 'white' });
-  f.spawns.security = [{ x: 66, z: 51.5, yaw: -Math.PI / 2 }];
+  f.spawns.security = [{ x: 61, z: 47.5, yaw: -Math.PI / 2 }];
 
   // ===========================================================================
   // CENTRAL CORRIDORS + JUNCTION
@@ -237,6 +237,24 @@ export function buildFacility(f) {
   f.prop('drum', 78.2, 90.8, {});
   f.prop('crate', 88, 86, {});
 
+  // Maintenance shaft: sealed escape route to the surface, opened only by
+  // emergency protocols (and still needs a Level 2 card).
+  f.room('Maintenance Shaft', 78, 93, 92, 99, 7, 'storage', 'MAINTENANCE SHAFT');
+  f.door({
+    x: 80, z: 92, axis: 'x', type: 'heavy', clearance: 2, name: 'Maintenance Access', requiresCard: true,
+    locked: 'MAINTENANCE ACCESS SEALED — EMERGENCY USE ONLY',
+  });
+  f.sign({ x: 82, y: 7.1, z: 92, face: 'n', lines: ['MAINTENANCE ACCESS', 'EMERGENCY EGRESS'], style: 'yellow', hazard: true });
+  f.light(84, 95, 'dim');
+  f.light(89, 96, 'off');
+  f.prop('pipe', 78, 93.4, { y: 7.5, opts: { len: 14 * 8 } });
+  f.prop('pipe', 78, 98.6, { y: 7.3, opts: { len: 14 * 8, color: 0x8a3a30, r: 1 } });
+  f.prop('drum', 90.5, 97.8, {});
+  f.prop('crate', 89, 94.2, {});
+  f.prop('ladder', 78, 96, { face: 'e' });
+  f.fill(78, 8, 95, 80, 9, 98, B.AIR);
+  f.sign({ x: 78, y: 6.2, z: 94.2, face: 'e', lines: ['SURFACE ↑'], style: 'yellow' });
+
   // ===========================================================================
   // HEAVY CONTAINMENT ZONE ENTRANCE
   // ===========================================================================
@@ -310,8 +328,6 @@ export function buildFacility(f) {
   f.prop('labTable', 163, 46, { face: 'n' });
   f.prop('stool', 162, 37, {});
   f.prop('stool', 164.5, 44.5, {});
-  f.prop('specimenCase', 171, 41, {});
-  f.prop('specimenCase', 171, 46.5, {});
   f.prop('shelf', 174.5, 36, { face: 'w' });
   f.prop('shelf', 174.5, 49, { face: 'w' });
   f.prop('whiteboard', 166, 34, { face: 's' });
@@ -406,6 +422,8 @@ export function buildFacility(f) {
   f.door({ x: 96, z: 124, axis: 'x', type: 'elevator', name: 'Elevator A', locked: 'ELEVATOR OFFLINE — SURFACE ACCESS RESTRICTED' });
   f.door({ x: 118, z: 124, axis: 'x', type: 'elevator', name: 'Elevator B', locked: 'ELEVATOR OFFLINE — SURFACE ACCESS RESTRICTED' });
   f.sign({ x: 98, y: 6.8, z: 124, face: 'n', lines: ['ELEVATOR A'], style: 'dark' });
+  f.room('Elevator A', 96, 125, 100, 128, 5, 'doorway', 'ELEVATOR A');
+  f.light(97, 126, 'white');
   f.sign({ x: 120, y: 6.8, z: 124, face: 'n', lines: ['ELEVATOR B'], style: 'dark' });
   for (const lx of [98, 108, 118]) for (const lz of [104, 112, 120]) f.light(lx, lz, 'neutral', { size: [2, 2], radius: 18, intensity: 1.6 });
   f.prop('couch', 97, 108, { face: 'e' });
@@ -419,7 +437,6 @@ export function buildFacility(f) {
   f.prop('bin', 104.8, 101, {});
   f.prop('cctvCam', 94.3, 101, { y: 11.4, face: 'e' });
   f.prop('cctvCam', 123.7, 122, { y: 11.4, face: 'w' });
-  f.spawns.personnel = [{ x: 110.5, z: 107, yaw: 0 }];
 
   f.room('Administration', 80, 102, 93, 116, 7, 'office', 'ADMINISTRATION OFFICES');
   f.door({ x: 93, z: 106, axis: 'z', type: 'standard', clearance: 2, name: 'Administration' });
@@ -447,6 +464,108 @@ export function buildFacility(f) {
   f.prop('vending', 137.3, 105, { face: 'w' });
   f.prop('waterCooler', 126, 103, {});
   f.prop('noticeBoard', 131, 102, { face: 's' });
+
+  // ===========================================================================
+  // GAMEPLAY POINTS, TERMINALS & FIRST AID (objectives and NPC posts)
+  // ===========================================================================
+  const P = (id, x, z, extra) => f.point(id, x, z, extra);
+  // Security patrol checkpoints.
+  P('patrol-dblock', 38, 65, { label: 'D-Block Corridor' });
+  P('patrol-commons', 11, 65, { label: 'D-Block Commons' });
+  P('patrol-cafeteria', 87, 47, { label: 'Cafeteria' });
+  P('patrol-storage', 87.5, 79.5, { label: 'Storage' });
+  P('patrol-hub', 109, 65, { label: 'Central Junction' });
+  P('patrol-north', 109, 34, { label: 'North Corridor' });
+  P('patrol-research', 153, 70, { label: 'Research Wing Hall' });
+  P('patrol-medical', 132, 79, { label: 'Medical Bay' });
+  P('patrol-lobby', 109, 108, { label: 'Administration Lobby' });
+  P('patrol-breakroom', 131, 110, { label: 'Staff Break Room' });
+
+  // Class-D testing.
+  P('guard-escort', 67, 61, { yaw: 0 });
+  P('tc-hall', 153.5, 81, { label: 'Test Chamber 01' });
+  P('tc-center', 167, 81);
+  P('tc-receptacle', 159.6, 88.6);
+  P('lab-hall', 153.5, 43, { label: 'Laboratory A' });
+  P('lab-mark', 166.5, 42.5);
+  P('seq-1', 169, 39);
+  P('seq-2', 171.5, 43);
+  P('seq-3', 169, 47);
+  P('sci-observation', 167.25, 65.5, { yaw: 180 });
+  P('sci-lab', 173, 41, { yaw: 90 });
+
+  // Escape route.
+  P('maint-door', 81.5, 90.3, { label: 'Maintenance Access' });
+  P('maint-shaft', 85, 96, { label: 'Maintenance Shaft' });
+  P('exit-ladder', 79, 96);
+  for (const [i, x, z, area] of [
+    [1, 153, 86, 'Research Wing'], [2, 143, 64.5, 'Research Wing'], [3, 116.5, 63, 'Central Junction'],
+    [4, 135.5, 79.5, 'Medical Bay'], [5, 95, 57, 'Cafeteria'], [6, 90, 64.2, 'Central Corridor'],
+  ]) P(`key-${i}`, x, z, { area });
+
+  // Security staff posts.
+  P('chief', 67.5, 49.5, { yaw: 90 });
+  P('guard-booth', 62, 70.8, { yaw: 0 });
+  P('guard-hcz', 100.5, 17, { yaw: -90 });
+  P('guard-lobby', 105, 102.5, { yaw: 150 });
+
+  // Researchers, doctors and Class-D ambient posts / wander targets.
+  P('doc-medical', 129.5, 80, { yaw: -90 });
+  P('w-res-1', 153, 50); P('w-res-2', 153, 88); P('w-res-3', 142, 64.5);
+  P('w-resoff', 142, 56.5); P('w-laba', 167, 50); P('w-cafe', 88, 45.5);
+  P('w-records', 127, 57); P('w-hub', 109, 70); P('w-medical', 131, 77.8);
+  for (const [i, x, z] of [[1, 5, 54], [2, 16, 54.5], [3, 11, 65], [4, 5, 65.5], [5, 17, 65.5], [6, 6, 76], [7, 15, 76]]) {
+    P(`w-commons-${i}`, x, z);
+  }
+
+  // VIP escort origins and destinations.
+  P('vip-laba', 166, 50, { label: 'Laboratory A', yaw: 0 });
+  P('vip-resoff', 147.5, 57, { label: 'Research Office', yaw: 90 });
+  P('vip-records', 122.5, 58, { label: 'Records Office', yaw: -90 });
+  P('dest-admin', 91, 104, { label: 'Administration Offices' });
+  P('dest-cafeteria', 87, 57, { label: 'Cafeteria' });
+  P('dest-lobby', 101, 106, { label: 'Administration Lobby' });
+  P('dest-medical', 130, 78, { label: 'Medical Bay' });
+  P('dest-hcz', 104, 20, { label: 'HCZ Checkpoint' });
+
+  // Evacuation.
+  P('evac', 98, 121.5, { label: 'Evacuation Elevator' });
+  P('evac-car', 98, 126.3);
+  P('shelter-1', 166, 49.5, { label: 'Laboratory A' });
+  P('shelter-2', 147.5, 57, { label: 'Research Office' });
+  P('shelter-3', 127.5, 84.2, { label: 'Medical Bay' });
+  P('shelter-4', 122.5, 58, { label: 'Records Office' });
+  P('shelter-5', 174, 62, { label: 'Observation Room' });
+
+  // Documents.
+  P('doc-records', 130.8, 53.2, { label: 'Records Office', h: 0.78 });
+  P('doc-admin', 89.3, 111.2, { label: 'Administration Offices', h: 0.78 });
+
+  // Breach origins (voxel centers).
+  P('breach-hcz', 109, 15, { label: 'HCZ Checkpoint' });
+  P('breach-research', 166, 81, { label: 'Test Chamber 01' });
+
+  // Wall terminals: id, x, y, z (on the wall surface), facing, label.
+  f.terminal('duty', 71.3, 3.6, 44, 's', 'DUTY ROSTER');
+  f.terminal('log-alpha', 58.5, 3.6, 56, 's', 'CHECKPOINT LOG');
+  f.terminal('log-hcz', 96, 3.6, 16, 'e', 'CHECKPOINT LOG');
+  f.terminal('log-research', 131.5, 3.6, 62, 's', 'CHECKPOINT LOG');
+  f.terminal('log-lobby', 101, 3.6, 100, 's', 'CHECKPOINT LOG');
+  f.terminal('server-reboot', 145.5, 3.6, 86, 'n', 'GRID CONTROL');
+  f.terminal('lock-hcz-a', 96, 3.6, 11, 'e', 'CONTAINMENT LOCK');
+  f.terminal('lock-hcz-b', 122, 3.6, 12, 'w', 'CONTAINMENT LOCK');
+  f.terminal('lock-hcz-c', 99, 3.6, 8, 's', 'CONTAINMENT LOCK');
+  f.terminal('lock-res-a', 176, 3.6, 62, 'w', 'CONTAINMENT LOCK');
+  f.terminal('lock-res-b', 157, 3.6, 88, 'e', 'CONTAINMENT LOCK');
+  f.terminal('lock-res-c', 156, 3.6, 74, 'w', 'CONTAINMENT LOCK');
+  f.terminal('tc-control', 156, 3.6, 84.5, 'w', 'TEST CONTROL');
+
+  f.firstAid(124, 3.6, 79.5, 'e');
+  f.firstAid(3, 3.6, 65, 'e');
+  f.firstAid(57, 3.6, 70, 'e');
+  f.firstAid(150, 3.6, 80, 'e');
+  f.firstAid(96, 3.6, 23.5, 'e');
+  f.firstAid(57, 3.6, 46, 'e');
 
   // ===========================================================================
   // Main-menu camera shots (from, to, look) — voxel coordinates.

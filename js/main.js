@@ -1,16 +1,19 @@
 // Entry point: boots the renderer, builds the facility and runs the state
-// machine  loading → menu → briefing → playing ⇄ paused.
+// machine  loading → menu → briefing → playing ⇄ paused → result.
 
+import * as THREE from 'three';
 import { Settings } from './settings.js';
 import { UI } from './ui/UI.js';
+import { Profile } from './game/Profile.js';
 
 window.__scpBooted = true;
 
 const settings = new Settings();
 const ui = new UI(settings);
+const profile = new Profile();
 
-const HINT_KBM = 'WASD move · Mouse look · Shift sprint · C crouch · Space jump · E use doors · Esc pause';
-const HINT_PAD = 'L-stick move · R-stick look · LB sprint · B crouch · A jump · X use doors · Start pause';
+const HINT_KBM = 'WASD move · Mouse look · Shift sprint · C crouch · Space jump · E interact (hold for terminals) · Esc pause';
+const HINT_PAD = 'L-stick move · R-stick look · LB sprint · B crouch · A jump · X interact (hold for terminals) · Start pause';
 
 async function boot() {
   ui.showLayer('loading');
@@ -39,7 +42,7 @@ async function boot() {
     return;
   }
   const input = new Input(canvas);
-  const game = new Game(renderer, settings, ui);
+  const game = new Game(renderer, settings, ui, profile);
 
   try {
     await game.load((p, text) => ui.setLoading(p, text));
@@ -62,9 +65,17 @@ async function boot() {
   let state = 'menu';
   let pausedAt = 0;
   let hadLock = false;
+  let lastRole = 'classd';
+  let endTimer = 0;
+  let pendingSummary = null;
+  let trackerTimer = 0;
+  let simSteps = 1; // debug-only fast-forward
+  const projected = new THREE.Vector3();
+  const camSpace = new THREE.Vector3();
 
   const goMenu = () => {
     state = 'menu';
+    ui.setProfile(profile);
     input.exitLock();
     ui.showHud(false);
     ui.clearHudMessages();
@@ -77,6 +88,8 @@ async function boot() {
 
   const startBriefing = (roleId) => {
     state = 'briefing';
+    lastRole = roleId;
+    ui.clearHudMessages();
     game.newGame(roleId);
     renderer.setFade(1);
     renderer.setDesaturate(0.6);
@@ -96,6 +109,7 @@ async function boot() {
     ui.showHint(input.usingPad ? HINT_PAD : HINT_KBM, 12);
     input.keysPressed.clear();
     if (!input.usingPad) input.requestLock();
+    game.startShift();
   };
 
   const pause = () => {
@@ -133,6 +147,48 @@ async function boot() {
   });
   ui.on('resume', resume);
   ui.on('quit', goMenu);
+  ui.on('new-shift', () => startBriefing(lastRole));
+
+  // Shift over (escaped, completed or terminated): let the moment land, then
+  // show the summary screen.
+  game.onShiftEnd = (summary) => {
+    pendingSummary = summary;
+    endTimer = summary.result === 'terminated' ? 3.2 : 2.5;
+    state = 'ending';
+    ui.setPrompt(null);
+    ui.setMarker(null);
+    ui.setHold(0);
+  };
+
+  /** Project the objective target onto the screen, clamped to the edges. */
+  const updateMarker = () => {
+    const t = settings.get('objectiveMarker') ? game.objectives.markerTarget() : null;
+    if (!t) {
+      ui.setMarker(null);
+      return;
+    }
+    const cam = game.camera;
+    camSpace.set(t.x, t.y, t.z).applyMatrix4(cam.matrixWorldInverse);
+    projected.set(t.x, t.y, t.z).project(cam);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let x = (projected.x * 0.5 + 0.5) * w;
+    let y = (-projected.y * 0.5 + 0.5) * h;
+    const behind = camSpace.z > 0;
+    const margin = 40;
+    let edge = behind || x < margin || x > w - margin || y < margin || y > h - margin;
+    if (behind) {
+      x = w - x;
+      y = h - margin;
+    }
+    if (edge) {
+      x = Math.max(margin, Math.min(w - margin, x));
+      y = Math.max(margin + 90, Math.min(h - margin, y));
+    }
+    const p = game.player.pos;
+    const emergency = game.objectives.primary && game.objectives.primary.kind === 'emergency';
+    ui.setMarker({ x, y, dist: Math.hypot(t.x - p.x, t.z - p.z), edge, emergency });
+  };
   // Ignore the Esc that just released the mouse so it doesn't instantly resume.
   ui.on('can-back', () => !(state === 'paused' && performance.now() - pausedAt < 700));
 
@@ -169,8 +225,17 @@ async function boot() {
     });
     // Teleport in voxel coordinates: __tp(x, z, yawDeg, pitchDeg)
     window.__tp = (x, z, yawDeg = 0, pitchDeg = 0) => {
-      game.player.spawn(x * 0.5, 0.5 + 0.001, z * 0.5, (yawDeg * Math.PI) / 180);
-      game.player.pitch = (pitchDeg * Math.PI) / 180;
+      const p = game.player;
+      p.pos.set(x * 0.5, 0.5 + 0.001, z * 0.5);
+      p.vel.set(0, 0, 0);
+      p.yaw = (yawDeg * Math.PI) / 180;
+      p.pitch = (pitchDeg * Math.PI) / 180;
+    };
+    window.__game = game;
+    window.__breach = (origin) => game.director && game.director.breach(origin);
+    window.__objective = () => game.objectives.view();
+    window.__speed = (n) => {
+      simSteps = Math.max(1, Math.min(16, n | 0));
     };
   }
 
@@ -201,12 +266,38 @@ async function boot() {
       if (input.pause()) {
         pause();
       } else {
-        game.update(dt, input);
-        const target = game.interactTarget;
-        ui.setPrompt(target ? target.promptText(game.role.clearance) : null, input.usingPad);
+        for (let i = 0; i < simSteps; i++) {
+          if (i > 0) input.clearEdges();
+          game.update(dt, input);
+        }
+        ui.setPrompt(game.interactTarget ? game.interactPrompt : null, input.usingPad);
+        ui.setHold(game.holdProgress || 0);
         ui.setStamina(game.player.stamina, game.player.exhausted);
+        ui.setHealth(game.player.hp, game.player.maxHp);
         ui.setCapture(!input.locked && !input.usingPad);
+        trackerTimer -= dt;
+        if (trackerTimer <= 0) {
+          trackerTimer = 0.15;
+          ui.setTracker(game.objectives.view());
+        }
+        updateMarker();
       }
+    } else if (state === 'ending') {
+      game.update(dt, input);
+      ui.setHealth(game.player.hp, game.player.maxHp);
+      endTimer -= dt;
+      renderer.setDesaturate(Math.min(0.7, renderer.uniforms.uDesat.value + dt * 0.3));
+      if (endTimer <= 0) {
+        state = 'result';
+        input.exitLock();
+        ui.showHud(false);
+        ui.clearHudMessages();
+        ui.showResult(pendingSummary);
+      }
+    } else if (state === 'result') {
+      const dir = input.padMenuDir();
+      if (dir) ui.nav(dir);
+      if (input.padConfirm()) ui.activate();
     } else if (state === 'paused') {
       const dir = input.padMenuDir();
       if (dir) ui.nav(dir);

@@ -133,6 +133,15 @@ export class Input {
     }
   }
 
+  /** Drop one-shot inputs (used when running several sim steps per frame). */
+  clearEdges() {
+    this.keysPressed.clear();
+    this.mouseClicked = false;
+    this.mouseDX = 0;
+    this.mouseDY = 0;
+    this.padPrev = this.padButtons;
+  }
+
   /** Call at the end of every frame. */
   endFrame() {
     this.keysPressed.clear();
@@ -222,6 +231,17 @@ export class Input {
       (this.locked && this.mouseClicked) ||
       this.padPressed(PAD.X) ||
       this.padPressed(PAD.RB)
+    );
+  }
+
+  /** Interact button currently held (for hold-to-use actions). */
+  interactHeld() {
+    return (
+      this.key('KeyE') ||
+      this.key('KeyF') ||
+      (this.locked && this.mouseHeld) ||
+      this.padDown(PAD.X) ||
+      this.padDown(PAD.RB)
     );
   }
 

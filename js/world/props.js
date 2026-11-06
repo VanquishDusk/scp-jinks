@@ -528,6 +528,18 @@ export const PROPS = {
     };
   },
 
+  ladder() {
+    // Wall-mounted; back against local z = 0, climbs into a ceiling hatch.
+    const b = [
+      [-5, 0, -3, -4, 58, -2, C.metalLight],
+      [4, 0, -3, 5, 58, -2, C.metalLight],
+      [-6, 0, -1, -5, 58, 0, C.metalDark],
+      [5, 0, -1, 6, 58, 0, C.metalDark],
+    ];
+    for (let y = 4; y < 58; y += 5) b.push([-4, y, -2.8, 4, y + 0.8, -2.2, C.metalLight]);
+    return { boxes: b, collide: false };
+  },
+
   showerHead() {
     return {
       boxes: [

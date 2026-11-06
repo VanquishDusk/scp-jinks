@@ -44,6 +44,8 @@ export class Door {
    *   slideDir +1 / -1 for single sliding panels (along local X)
    *   locked   optional message; door can never be opened
    *   name     shown in the interaction prompt
+   *   id       script id (defaults to a slug of the name)
+   *   requiresCard  never released by emergency protocols
    */
   constructor(o) {
     const t = DOOR_TYPES[o.type || 'standard'];
@@ -58,7 +60,16 @@ export class Door {
     this.clearance = o.clearance ?? 0;
     this.slideDir = o.slideDir ?? 1;
     this.locked = o.locked || null;
+    this.baseLocked = this.locked;
     this.name = o.name || t.label;
+    this.baseName = this.name;
+    this.baseClearance = this.clearance;
+    this.id = o.id || this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    this.requiresCard = !!o.requiresCard;
+    // Runtime overrides used by facility events and scripts.
+    this.released = false; // emergency release: keycard check bypassed
+    this.sealed = null; // temporary seal message (e.g. test in progress)
+    this.faulty = false; // reader malfunction
     this.duration = t.duration;
     this.startOpen = !!o.open;
 
@@ -209,7 +220,8 @@ export class Door {
   }
 
   idleLedColor() {
-    if (this.locked) return LED_IDLE[4];
+    if (this.locked || this.sealed) return LED_IDLE[4];
+    if (this.released && !this.requiresCard) return 0x40ff60;
     return LED_IDLE[Math.min(5, this.clearance)];
   }
 
@@ -217,7 +229,43 @@ export class Door {
     this.progress = this.startOpen ? 1 : 0;
     this.state = this.startOpen ? 'open' : 'closed';
     this.flash = 0;
+    this.locked = this.baseLocked;
+    this.clearance = this.baseClearance;
+    this.name = this.baseName;
+    this.released = false;
+    this.sealed = null;
+    this.faulty = false;
+    this.ledMat.color.setHex(this.idleLedColor());
     this.applyPose();
+  }
+
+  /** Why the door refuses someone with this clearance, or null if allowed. */
+  denyReason(clearance) {
+    if (this.locked) return this.locked;
+    if (this.sealed) return this.sealed;
+    if (this.faulty) return 'READER MALFUNCTION — MAINTENANCE REQUIRED';
+    if (this.released && !this.requiresCard) return null;
+    if (clearance < this.clearance) {
+      return `ACCESS DENIED — ${CLEARANCE[this.clearance].name.toUpperCase()} CLEARANCE REQUIRED`;
+    }
+    return null;
+  }
+
+  canOpen(clearance) {
+    return this.denyReason(clearance) === null;
+  }
+
+  /** Scripted control (ignores clearance). */
+  open() {
+    if (this.state !== 'open') this.state = 'opening';
+  }
+
+  close() {
+    if (this.state !== 'closed') this.state = 'closing';
+  }
+
+  refreshLed() {
+    if (this.flash <= 0) this.ledMat.color.setHex(this.idleLedColor());
   }
 
   get isOpen() {
@@ -260,15 +308,11 @@ export class Door {
   }
 
   /** Attempt to operate the door. Returns { ok, message }. */
-  use(clearance, playerBox) {
-    if (this.locked) {
+  operate(clearance, playerBox) {
+    const deny = this.denyReason(clearance);
+    if (deny) {
       this.flashLed(0xff2a1a);
-      return { ok: false, message: this.locked };
-    }
-    if (clearance < this.clearance) {
-      this.flashLed(0xff2a1a);
-      const c = CLEARANCE[this.clearance];
-      return { ok: false, message: `ACCESS DENIED — ${c.name.toUpperCase()} CLEARANCE REQUIRED` };
+      return { ok: false, message: deny };
     }
     if (this.state === 'closed' || this.state === 'closing') {
       this.state = 'opening';
@@ -291,11 +335,28 @@ export class Door {
   promptText(clearance) {
     const verb = this.isOpen ? 'Close' : 'Open';
     if (this.locked) return { text: `${this.name}`, sub: 'LOCKED', denied: true };
+    if (this.sealed) return { text: `${this.name}`, sub: 'SEALED', denied: true };
+    if (this.faulty) return { text: `${this.name}`, sub: 'READER FAULT', denied: true };
+    if (this.released && !this.requiresCard) return { text: `${verb} ${this.name}`, sub: 'EMERGENCY RELEASE', denied: false };
     if (clearance < this.clearance) {
       return { text: `${verb} ${this.name}`, sub: `${CLEARANCE[this.clearance].name} required`, denied: true };
     }
     const sub = this.clearance > 0 ? `${CLEARANCE[this.clearance].name}` : '';
     return { text: `${verb} ${this.name}`, sub, denied: false };
+  }
+
+  // ---- Generic interactable interface (see game/Interactables.js) ----------
+  boxes() {
+    return this.interactBoxes();
+  }
+
+  prompt(game) {
+    return this.promptText(game.clearance);
+  }
+
+  use(game) {
+    const res = this.operate(game.clearance, game.player.aabb());
+    return res;
   }
 
   /** Boxes the player can aim at to interact (world AABBs). */
@@ -305,13 +366,14 @@ export class Door {
     return [...this.colliders, ...this.buttonBoxes];
   }
 
-  update(dt, playerBox, time) {
+  /** bodies: AABBs of the player and nearby NPCs (obstruction sensor). */
+  update(dt, bodies, time) {
     const moving = this.state === 'opening' || this.state === 'closing';
     if (this.state === 'opening') {
       this.progress = Math.min(1, this.progress + dt / this.duration);
       if (this.progress >= 1) this.state = 'open';
     } else if (this.state === 'closing') {
-      if (playerBox && this.intersectsOpening(playerBox)) {
+      if (bodies.some((b) => this.intersectsOpening(b))) {
         // Safety sensor: never close on someone.
         this.state = 'opening';
       } else {
@@ -328,6 +390,8 @@ export class Door {
       const on = Math.floor(this.flash * 10) % 2 === 0;
       this.ledMat.color.setHex(on ? this.flashColor : 0x101010);
       if (this.flash <= 0) this.ledMat.color.setHex(this.idleLedColor());
+    } else if (this.faulty) {
+      this.ledMat.color.setHex(Math.floor(time * 3) % 2 ? 0xffa020 : 0x201008);
     }
   }
 }

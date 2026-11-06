@@ -27,6 +27,23 @@ export class FacilityBuilder {
     this.spawns = {};
     this.decals = [];
     this.shots = [];
+    this.points = {};
+    this.terminals = [];
+    this.firstAids = [];
+  }
+
+  /** Named gameplay location (objectives, NPC posts). Voxel coordinates. */
+  point(id, x, z, extra = {}) {
+    this.points[id] = { id, x, z, ...extra };
+  }
+
+  /** Wall terminal centered at (x, y, z) on a wall surface, facing `face`. */
+  terminal(id, x, y, z, face, label) {
+    this.terminals.push({ id, x, y, z, face, label });
+  }
+
+  firstAid(x, y, z, face) {
+    this.firstAids.push({ x, y, z, face });
   }
 
   /** Carve a room. Floor surface is at y = 1; air spans y = 1..h. */

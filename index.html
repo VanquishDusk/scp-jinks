@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SCP: JINKS — Facility Simulation</title>
+  <meta name="description" content="A retro voxel SCP Foundation facility simulation that runs in the browser." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23111'/%3E%3Ccircle cx='50' cy='50' r='32' fill='none' stroke='%23ddd' stroke-width='9'/%3E%3Ccircle cx='50' cy='50' r='12' fill='none' stroke='%23ddd' stroke-width='7'/%3E%3C/svg%3E" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game" aria-label="Game view"></canvas>
+  <div id="crt" class="crt" aria-hidden="true"></div>
+  <div id="fade" class="fade" aria-hidden="true"></div>
+
+  <!-- ===================== HUD ===================== -->
+  <div id="hud" class="hud hidden" aria-live="polite">
+    <div id="crosshair" class="crosshair"></div>
+    <div id="prompt" class="prompt hidden">
+      <span class="key" id="prompt-key">E</span>
+      <span id="prompt-text"></span>
+      <div id="prompt-sub" class="sub"></div>
+    </div>
+    <div id="toast" class="toast"></div>
+    <div id="zone" class="zone"></div>
+    <div id="badge" class="badge">
+      <div class="badge-role" id="badge-role"></div>
+      <div class="badge-id" id="badge-id"></div>
+      <div class="badge-clear" id="badge-clear"></div>
+    </div>
+    <div class="meters">
+      <div class="meter">
+        <svg class="meter-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" d="M9 1h2v2H9zM8 4h3v1h1v1h2v2h-3V7h-1v3l2 2v3h-2v-2l-2-2-1 2-2 2H3v-1l2-2 1-3V7H5v2H3V6h2V5h3z"/>
+        </svg>
+        <div class="segments" id="stamina"></div>
+      </div>
+    </div>
+    <div id="fps" class="fps hidden"></div>
+    <div id="hint" class="hint"></div>
+    <div id="capture" class="capture hidden">CLICK TO CAPTURE MOUSE</div>
+  </div>
+
+  <!-- ===================== LOADING ===================== -->
+  <div id="loading" class="layer loading">
+    <div class="term">
+      <div class="emblem-wrap"><svg class="emblem" viewBox="0 0 100 100" aria-hidden="true"><use href="#scp-emblem"/></svg></div>
+      <div class="term-line">SCP FOUNDATION · SECURE FACILITY TERMINAL</div>
+      <div class="term-line dim" id="loading-text">Establishing secure connection…</div>
+      <div class="bar"><div class="bar-fill" id="loading-bar"></div></div>
+      <div class="term-line dim small" id="loading-error"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MENUS ===================== -->
+  <div id="menu" class="layer menu hidden">
+    <div class="menu-vignette"></div>
+
+    <section class="screen" data-screen="title">
+      <div class="title-block">
+        <svg class="emblem big" viewBox="0 0 100 100" aria-hidden="true"><use href="#scp-emblem"/></svg>
+        <div>
+          <h1 id="game-title">SCP: JINKS</h1>
+          <div class="subtitle" id="game-subtitle">Foundation Facility Simulation</div>
+        </div>
+      </div>
+      <nav class="items">
+        <div class="item" data-action="start">Start Shift</div>
+        <div class="item" data-action="settings">Settings</div>
+        <div class="item" data-action="controls">Controls</div>
+        <div class="item" data-action="about">About</div>
+      </nav>
+      <div class="footer">
+        <span id="version"></span>
+        <span id="pad-status"></span>
+        <span id="touch-note"></span>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="roles">
+      <h2>Select Assignment</h2>
+      <div class="subtitle">Choose the role you will work this shift as.</div>
+      <div class="roles" id="roles"></div>
+      <nav class="items">
+        <div class="item" data-action="back">Back</div>
+      </nav>
+    </section>
+
+    <section class="screen" data-screen="settings">
+      <h2>Settings</h2>
+      <div class="items settings" id="settings-list"></div>
+      <nav class="items">
+        <div class="item" data-action="reset-settings">Reset to Defaults</div>
+        <div class="item" data-action="back">Back</div>
+      </nav>
+      <div class="footer small">← → / click to change · settings are saved in this browser</div>
+    </section>
+
+    <section class="screen" data-screen="controls">
+      <h2>Controls</h2>
+      <table class="controls">
+        <thead><tr><th>Action</th><th>Keyboard &amp; Mouse</th><th>Gamepad</th></tr></thead>
+        <tbody>
+          <tr><td>Move</td><td>W A S D</td><td>Left stick</td></tr>
+          <tr><td>Look</td><td>Mouse / Arrow keys</td><td>Right stick</td></tr>
+          <tr><td>Sprint</td><td>Shift</td><td>LB / L3</td></tr>
+          <tr><td>Crouch</td><td>C</td><td>B</td></tr>
+          <tr><td>Jump</td><td>Space</td><td>A</td></tr>
+          <tr><td>Interact (doors)</td><td>E / F / Left click</td><td>X / RB</td></tr>
+          <tr><td>Pause</td><td>Esc / P</td><td>Start</td></tr>
+          <tr><td>Menus</td><td>Arrows / WASD · Enter · Esc</td><td>D-pad · A · B</td></tr>
+        </tbody>
+      </table>
+      <nav class="items">
+        <div class="item" data-action="back">Back</div>
+      </nav>
+    </section>
+
+    <section class="screen" data-screen="about">
+      <h2>About</h2>
+      <div class="about">
+        <p><b>SCP: JINKS</b> is an early, single-player foundation build of a retro voxel
+        SCP Foundation facility simulation. Walk the halls of Site-██ as Class-D personnel,
+        a security guard or facility staff. Containment breaches and other events are
+        planned for future updates.</p>
+        <p>This game is silent by design: it has no audio.</p>
+        <p class="small">Based on the SCP Foundation (scp-wiki.wikidot.com), licensed under
+        <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>.
+        The SCP emblem is used under the same license. Rendering by
+        <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> (MIT).</p>
+      </div>
+      <nav class="items">
+        <div class="item" data-action="back">Back</div>
+      </nav>
+    </section>
+
+    <section class="screen" data-screen="pause">
+      <h2>Paused</h2>
+      <div class="subtitle" id="pause-info"></div>
+      <nav class="items">
+        <div class="item" data-action="resume">Resume</div>
+        <div class="item" data-action="settings">Settings</div>
+        <div class="item" data-action="controls">Controls</div>
+        <div class="item" data-action="quit">Quit to Main Menu</div>
+      </nav>
+    </section>
+  </div>
+
+  <!-- ===================== BRIEFING ===================== -->
+  <div id="briefing" class="layer briefing hidden">
+    <div class="term wide">
+      <div class="term-line">FOUNDATION PERSONNEL TERMINAL // SHIFT ASSIGNMENT</div>
+      <div id="briefing-lines" class="briefing-lines"></div>
+      <div id="briefing-go" class="briefing-go hidden">[ CLICK OR PRESS ENTER TO BEGIN ]</div>
+    </div>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <g id="scp-emblem">
+        <circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="9"/>
+        <circle cx="50" cy="50" r="13" fill="none" stroke="currentColor" stroke-width="6"/>
+        <g id="scp-arrow">
+          <rect x="43" y="4" width="14" height="24" fill="var(--bg-solid, #0b0c0e)"/>
+          <rect x="46.5" y="4" width="7" height="22" fill="currentColor"/>
+          <polygon points="38,24 62,24 50,36" fill="currentColor"/>
+        </g>
+        <use href="#scp-arrow" transform="rotate(120 50 50)"/>
+        <use href="#scp-arrow" transform="rotate(240 50 50)"/>
+      </g>
+    </defs>
+  </svg>
+
+  <noscript>
+    <div class="noscript">This game needs JavaScript and WebGL to run.</div>
+  </noscript>
+
+  <script>
+    // Fallback message if the module entry point never starts (e.g. file://).
+    window.setTimeout(function () {
+      if (window.__scpBooted) return;
+      var t = document.getElementById('loading-text');
+      var e = document.getElementById('loading-error');
+      if (t) t.textContent = 'TERMINAL FAILURE';
+      if (e) e.textContent = window.location.protocol === 'file:'
+        ? 'Browsers block game modules when index.html is opened directly from disk.\nServe this folder over HTTP (see README.md) or play it on GitHub Pages.'
+        : 'The game failed to start. A recent browser with ES modules, import maps and WebGL is required.';
+    }, 6000);
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

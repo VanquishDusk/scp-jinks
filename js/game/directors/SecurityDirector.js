@@ -105,6 +105,8 @@ export class SecurityDirector extends Director {
   }
 
   tick(dt) {
+    // Level 4 access while a Keter emergency or a Keter containment check is on.
+    this.tempClearance = this.keterEmergency || this.tasks.active.some((t) => t.keter) ? 4 : 0;
     // More jobs pile up as the shift goes on.
     this.maxTasks = this.clock > 240 ? 3 : 2;
     const normal = this.tasks.active.filter((t) => t.kind === 'task').length;
@@ -148,7 +150,7 @@ export class SecurityDirector extends Director {
         this.recontainTask(data);
         // Keter Sector clearance for the duration of a Keter emergency.
         if (CATALOG[data.scp] && CATALOG[data.scp].cls === 'Keter') {
-          this.tempClearance = 4;
+          this.keterEmergency = true;
           this.game.ui.toast('EMERGENCY ACCESS: LEVEL 4 GRANTED', false);
         }
       }
@@ -175,7 +177,7 @@ export class SecurityDirector extends Director {
     } else if (name === 'riot-ended' && !data.byPlayer) {
       this.failTag('riot', 'The response team had to quell the riot');
     } else if (name === 'end') {
-      this.tempClearance = 0;
+      this.keterEmergency = false;
       this.tasks.cancel((t) => t.tag === 'evac', 'Evacuation complete');
       this.releaseGuards();
     }
@@ -447,7 +449,7 @@ export class SecurityDirector extends Director {
     const e = list[0];
     const c = CATALOG[e.id];
     const integ = Math.round(g.scps.integrity.get(e.id) ?? 100);
-    return new Task({
+    const task = new Task({
       title: `Containment check: ${e.name}`,
       giver: 'Containment Engineering',
       channel: 'radio',
@@ -460,7 +462,7 @@ export class SecurityDirector extends Director {
       steps: [
         new ActionStep({
           text: `Run the containment check at ${e.chamber.name}`,
-          detail: 'Heavy Containment Wing, east of the HCZ Checkpoint.',
+          detail: `${c.sector}.${c.cls === 'Keter' ? ' Level 4 access granted for this job.' : ''}`,
           object: g.terminals.get(e.chamber.terminal),
           action: { text: `Run containment check (${e.name})`, hold: 3 },
           screen: 'CHECK REQUIRED',
@@ -473,6 +475,8 @@ export class SecurityDirector extends Director {
       ],
       onFail: (gm) => gm.scps.integrity.set(e.id, Math.max(0, (gm.scps.integrity.get(e.id) ?? 50) - 20)),
     });
+    task.keter = c.cls === 'Keter';
+    return task;
   }
 
   gridTask() {

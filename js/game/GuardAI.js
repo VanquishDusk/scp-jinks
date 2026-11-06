@@ -95,7 +95,7 @@ export class GuardAI {
   /** Can a bullet actually get there (glass stops bullets, but not sight)? */
   clearShot(n, target) {
     const g = this.g;
-    const ty = target === g.player ? target.pos.y + target.height * 0.7 : target.kind ? target.pos.y + 1.2 : target.pos.y;
+    const ty = target === g.player ? target.pos.y + target.height * 0.7 : target.aimY != null ? target.pos.y + target.aimY : target.kind ? target.pos.y + 1.2 : target.pos.y;
     const ox = n.pos.x;
     const oy = n.pos.y + 1.35;
     const oz = n.pos.z;
@@ -277,7 +277,7 @@ export class GuardAI {
       }
       const mode = e.recon.mode;
       if (mode === 'carry') this.teamJob(e, officers, free, taken, { job: 'fetch', reach: 1.2, hold: 2.5, speed: 2.2, say: `Got ${e.name}. Taking it home.` });
-      else if (mode === 'escort') this.teamJob(e, officers, free, taken, { job: 'escort', reach: 1.6, hold: 3, speed: 2.4, ready: () => e.stunT > 0.4, wait: 5, say: 'SCP-049 is compliant. Walking it back.' });
+      else if (mode === 'escort') this.teamJob(e, officers, free, taken, { job: 'escort', reach: 1.6, hold: 3, speed: 2.4, ready: () => e.stunT > 0.4, wait: 5, holding: () => (e.stunT = Math.max(e.stunT, 1)), say: 'SCP-049 is compliant. Walking it back.' });
       else if (mode === 'subdue') this.teamJob(e, officers, free, taken, { job: 'restrain', reach: 2.4, hold: 5, speed: 3, ready: () => e.state === 'down', wait: 10, say: 'Restraints on! Get it back in the acid!' });
       else if (mode === 'cover') this.teamJob(e, officers, free, taken, { job: 'cover', reach: 1.3, hold: 3.5, speed: 1.6, eyesDown: true, say: 'Case closed. Nobody look at it.' });
       else if (mode === 'terminals') this.handleTerminals(e, officers, free, taken);
@@ -603,6 +603,7 @@ export class GuardAI {
     }
     this.halt(n);
     n.faceToward(e.pos.x, e.pos.z);
+    if (o.holding) o.holding();
     job.t += THINK;
     if (job.t >= o.hold) {
       this.callout(n, `done-${e.id}`, o.say, 5);

@@ -18,6 +18,18 @@ const DBLOCK = ['D-CLASS CONTAINMENT BLOCK', 'D-BLOCK COMMONS', 'D-BLOCK WASHROO
 const ROUTE_WEST = ['SECURITY CHECKPOINT ALPHA', 'CENTRAL CORRIDOR — WEST'];
 const ROUTE_EAST = [...ROUTE_WEST, 'CENTRAL JUNCTION', 'CENTRAL CORRIDOR — EAST'];
 const ROUTE_HCZ = [...ROUTE_WEST, 'CENTRAL JUNCTION', 'NORTH CORRIDOR', 'HEAVY CONTAINMENT ZONE — ENTRANCE', 'HEAVY CONTAINMENT WING'];
+const ROUTE_LCZ = [...ROUTE_EAST, 'RESEARCH WING', 'LIGHT CONTAINMENT SECTOR'];
+
+/** Research assignments with the Safe-class SCPs (only those the site owns). */
+const RESEARCH = {
+  914: { text: 'Refine the test keycard in SCP-914', detail: 'Put the card in the intake booth, set the dial, wind the key.', check: (e, s) => e.runs > s.runs0 },
+  330: { text: 'Take ONE piece of candy from SCP-330', detail: 'One. Read the sign.', check: (e, s) => e.taken > s.taken0 },
+  207: { text: 'Drink one bottle of SCP-207', detail: 'Report any heart palpitations. Do not drink a second.', check: (e, s, g) => g.player.colaT > 0 },
+  294: { text: 'Order a drink from SCP-294', detail: 'Type anything. Drink what it gives you.', check: (e) => e.cool > 0 },
+  529: { text: 'Observe SCP-529 (pet her)', detail: 'Interact with the cat. She is friendly.', check: (e) => e.cool > 0 },
+  999: { text: 'Spend time with SCP-999', detail: 'Stand next to it for a while. It likes hugs.', check: (e, s, g) => (s.near = (s.near || 0) + (Math.hypot(e.pos.x - g.player.pos.x, e.pos.z - g.player.pos.z) < 1.6 ? 0.25 : 0)) > 4 },
+  131: { text: 'Socialize SCP-131', detail: 'Ask the eye pods to follow you.', check: (e) => e.following },
+};
 const SPILLS = [
   { id: 'spill-commons', label: 'D-Block Commons', zones: [], doors: [] },
   { id: 'spill-washroom', label: 'D-Block Washroom', zones: [], doors: [] },
@@ -83,6 +95,7 @@ export class ClassDDirector extends Director {
       medical: { weight: 1, cooldown: 300, make: () => this.makeMedical() },
       headcount: { weight: 2, cooldown: 150, can: () => !DBLOCK.includes(this.game.zone) || Math.random() < 0.4, make: () => this.makeHeadcount() },
       meal: { weight: 1, cooldown: 300, make: () => this.makeMeal() },
+      research: { weight: 3, cooldown: 180, can: () => this.researchCandidates().length > 0 && !this.game.events.busy, make: () => this.makeResearch() },
       tray096: {
         weight: 2,
         cooldown: 360,
@@ -547,6 +560,50 @@ export class ClassDDirector extends Director {
         this.returnStep(150),
       ],
       announce: `${g.designation}, report to the Medical Bay for a scheduled checkup.`,
+    });
+  }
+
+  researchCandidates() {
+    return Object.keys(RESEARCH).map((id) => this.game.scps.entities.get(id)).filter((e) => e && e.contained);
+  }
+
+  makeResearch() {
+    const g = this.game;
+    const e = pick(this.researchCandidates());
+    const r = RESEARCH[e.id];
+    const ch = e.chamber;
+    let card = null;
+    return new Task({
+      title: `Research assignment: ${e.name}`,
+      giver: 'Light Containment',
+      kind: 'order',
+      reward: 50,
+      penalty: 15,
+      standing: [8, 12],
+      grants: { zones: [...ROUTE_LCZ, ch.zone], doors: ['d-block-gate', 'checkpoint-door', 'research-wing', 'lcz-checkpoint', ch.door] },
+      steps: [
+        new CustomStep({
+          text: r.text,
+          detail: `${ch.name}, Light Containment Sector. ${r.detail}`,
+          timeLimit: 260,
+          onStart: (gm, step) => {
+            step.runs0 = e.runs || 0;
+            step.taken0 = e.taken || 0;
+            if (e.id === '914' && !gm.player.keycard) {
+              // A scrap Level 1 card to feed the machine.
+              const [x, z] = [(ch.panel[0] - 2) * 0.5, (ch.panel[1] + 2) * 0.5];
+              card = gm.addPickup({ id: 'test-card', kind: 'keycard', x, y: 0.62, z, name: 'Test Keycard (Level 1)', onPickup: (g2) => { g2.player.keycard = 1; g2.ui.setItem('Keycard: Level 1'); } });
+            }
+          },
+          update: (gm, dt, step) => r.check(e, step, gm),
+          target: () => ({ x: e.pos.x, y: e.pos.y + 1.6, z: e.pos.z }),
+          onEnd: (gm) => {
+            if (card && !card.taken) gm.removeInteractable(card);
+          },
+        }),
+        this.returnStep(200),
+      ],
+      announce: `${g.designation}, report to the Light Containment Sector. Research assignment with ${e.name}.`,
     });
   }
 

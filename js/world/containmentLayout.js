@@ -254,6 +254,7 @@ export function buildContainment(f) {
     lights: [[244, 24, 'cold', { size: [2, 2] }], [264, 24, 'cold', { size: [2, 2] }], [244, 42, 'red', { size: [2, 2] }], [264, 42, 'red', { size: [2, 2] }], [254, 34, 'cold', { size: [2, 2], intensity: 1.2 }]],
     center: [255, 35], yaw: 0, outside: [254, 16],
     tank: [247, 29, 263, 42],
+    construction: [P('scaffold', 254, 23), P('tarp', 245, 24), P('cementBags', 265, 24), P('workLight', 242, 21), P('crates', 266, 45), P('drum', 242, 45)],
     fixtures: [P('consoleDesk', 245, 22.2, 's'), P('drum', 267, 22), P('drum', 268, 23.2)],
   });
   // The tank: glass walls, acid inside (solid: you walk around it).
@@ -271,6 +272,7 @@ export function buildContainment(f) {
     lights: [[277, 24, 'red', { size: [2, 2] }], [300, 24, 'cold', { size: [2, 2] }], [277, 43, 'cold', { size: [2, 2] }], [300, 43, 'red', { size: [2, 2] }]],
     center: [289, 34], yaw: 0, outside: [289, 16],
     cellFloorY: 4,
+    construction: [P('scaffold', 278, 23), P('tarp', 299, 24), P('cementBags', 289, 25), P('workLight', 275, 21), P('crates', 301, 44), P('pallet', 277, 44)],
   });
   f.fill(282, 3, 29, 296, 10, 40, B.STEEL);
   f.fill(283, 4, 30, 295, 9, 39, B.AIR);

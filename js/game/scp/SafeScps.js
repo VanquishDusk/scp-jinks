@@ -505,6 +505,7 @@ export class Scp914 extends ScpBase {
     if (this.running) return null;
     if (!this.input) return { ok: false, message: 'THE INTAKE BOOTH IS EMPTY' };
     this.running = 7;
+    this.runs = (this.runs || 0) + 1;
     this.result = refine(this.input, this.setting);
     this.input = null;
     return { ok: true, message: 'THE KEY TURNS. GEARS BEGIN TO GRIND.' };

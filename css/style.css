@@ -717,7 +717,7 @@ h2 {
 .snap { animation: snap 0.5s steps(2); }
 @keyframes snap { 0% { background: rgba(255, 255, 255, 0.9); } 100% { background: transparent; } }
 
-.screen[data-screen="shop"] { width: min(1180px, 100vw); padding: 28px clamp(16px, 4vw, 48px); }
+.screen[data-screen="shop"] { width: min(1180px, 100vw); padding: 28px clamp(16px, 4vw, 48px); justify-content: flex-start; }
 .shop-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin: 6px 0; }
 .shop-item.item {
   display: flex;

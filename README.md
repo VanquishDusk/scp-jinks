@@ -4,12 +4,11 @@ A single-player, retro voxel **SCP Foundation facility simulation** that runs en
 browser. It uses a low-resolution, dithered, PS2-era look with chunky voxel architecture, baked
 lighting and pixel-art textures that are generated in code.
 
-> **v0.6.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
-> Security Guard), plus an **SCP tycoon layer**. Buy SCPs, house them in the Heavy Containment
-> Wing and earn research grants, at the risk of breaches. SCP-173 (line of sight and
-> blinking) and SCP-096 (seeing its face, even on a camera feed or in a photo, means death)
-> are in. **Combat** adds melee and ranged weapons, and the guards now know how to contain
-> SCPs as a team. The game is silent by design (no audio).
+> **v0.7.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
+> Security Guard), plus an **SCP tycoon layer** with **18 SCPs** (Safe, Euclid and Keter), each
+> in its own purpose-built containment room, across a facility three times the size it was. Buy
+> SCPs, earn research grants, and survive the breaches. **Combat** adds melee and ranged weapons,
+> and the guards know how to contain SCPs as a team. The game is silent by design (no audio).
 
 ## Play
 
@@ -131,15 +130,44 @@ Losing researchers on your watch costs Performance.
 ## SCPs (tycoon layer)
 
 The site owns a persistent **containment roster** that both classes share. It is saved in your
-browser along with your Credits. The **Heavy Containment Wing** (east of the HCZ Checkpoint) has
-six chambers.
+browser along with your Credits. There are **18 SCPs** across three object classes, and **every
+SCP has its own purpose-built containment room**: a steel cube for SCP-096, an acid tank for
+SCP-682, a cell suspended on pillars for SCP-106, a playroom for SCP-999, a machine hall for
+SCP-914, and so on. Rooms for SCPs the site does not own yet are **sealed construction sites**
+(scaffolding, tarps, cement, a locked door). Buying an SCP commissions its room: the
+construction gear is cleared, the furniture goes in, the door unseals and the SCP is delivered.
 
-| SCP     | Class  | Price   | Research grants | Breach risk | Notes |
-|---------|--------|---------|-----------------|-------------|-------|
-| SCP-500 | Safe   | 600 CR  | 10 CR/min       | none        | The chamber terminal dispenses one full-heal pill per shift |
-| SCP-999 | Safe   | 1400 CR | 24 CR/min       | low         | Loose, it wanders the halls and heals anyone it hugs. The grid still fails open |
-| SCP-173 | Euclid | 3500 CR | 75 CR/min       | very high   | Lethal. Containment integrity decays fast |
-| SCP-096 | Euclid | 6500 CR | 130 CR/min      | extreme     | Lethal. Breaks out tearing doors apart. Hardest to recontain |
+The facility is about **three times larger** than before:
+
+- **Heavy Containment Wing** (Euclid), past the HCZ Checkpoint: SCP-173, 049, 012, 079, 151 and
+  096, plus a security post, MTF staging, decontamination, Euclid records and a generator room.
+- **Keter Sector**, through a **Level 4** door at the end of the wing: SCP-682, 106 and 939, an
+  observation room and a security post. A spine corridor runs south to Light Containment.
+- **Light Containment Sector** (Safe), east of the Research Wing past the LCZ Checkpoint
+  (Level 2): SCP-914, 999, 131, 529, 500, 330, 207, 005 and 294, plus a lounge, a lab and a
+  security post.
+- **The pocket dimension**: a place you do not want to see (SCP-106).
+
+| SCP | Name | Class | Price | Grants | Breach risk | What it does |
+|-----|------|-------|-------|--------|-------------|--------------|
+| SCP-529 | Josie the Half-Cat | Safe | 450 CR | 6/min | never | Pet her: some health and full stamina |
+| SCP-500 | Panacea | Safe | 600 CR | 10/min | never | Security: one full-heal pill per shift from its terminal |
+| SCP-330 | Take Only Two | Safe | 800 CR | 12/min | never | Two sweets heal you. A third costs you your hands (no weapons for the rest of the shift) |
+| SCP-207 | Cola Bottles | Safe | 900 CR | 14/min | never | 75 s of 40% more speed and unlimited stamina. Drinking another while it works hurts your heart |
+| SCP-131 | The Eye Pods | Safe | 1000 CR | 15/min | never | They follow you if you ask. Their eyes never close, so **SCP-173 cannot move while they see it** |
+| SCP-999 | The Tickle Monster | Safe | 1400 CR | 24/min | low | Loose, it wanders the halls and heals anyone it hugs |
+| SCP-005 | Skeleton Key | Safe | 2000 CR | 28/min | never | Borrow it once per shift: two minutes of opening any door |
+| SCP-914 | The Clockworks | Safe | 2600 CR | 36/min | never | Refine keycards and weapons (see below) |
+| SCP-294 | The Coffee Machine | Euclid | 1800 CR | 30/min | never | A random drink every 30 s: mostly healing, sometimes acid |
+| SCP-151 | The Painting | Euclid | 2200 CR | 38/min | never | Kept under a cloth. Looking at it starts drowning you; first aid stops it. When integrity is low, the cloth slips |
+| SCP-079 | Old AI | Euclid | 3000 CR | 55/min | moderate | Breach: slams and locks doors around you, flickers the lights, taunts you |
+| SCP-012 | A Bad Composition | Euclid | 3200 CR | 60/min | moderate | Breach: looking at it pulls you in to finish it in your own blood. **Close your eyes (`Q`)** to break free |
+| SCP-173 | The Sculpture | Euclid | 3500 CR | 75/min | high | See below |
+| SCP-049 | The Plague Doctor | Euclid | 4800 CR | 95/min | high | Breach: its touch kills, and its victims rise as **SCP-049-2**. Bullets only stagger it |
+| SCP-096 | The Shy Guy | Euclid | 6500 CR | 130/min | high | See below |
+| SCP-939 | With Many Voices | Keter | 8000 CR | 160/min | very high | Two blind predators that **hunt by sound** and imitate the voices of the dead |
+| SCP-106 | The Old Man | Keter | 10000 CR | 200/min | very high | Walks through walls. Its prey is dragged into the **pocket dimension** |
+| SCP-682 | Hard-to-Destroy Reptile | Keter | 14000 CR | 260/min | extreme | Rampages, tears doors apart, regenerates. Can only be knocked down |
 
 - **Earning:** task rewards pay 1.5× their base value (failure penalties are 0.75×). Ending a
   shift well pays a bonus of 100 CR + 2 CR per point of Standing: **shift pay** for Security,
@@ -149,12 +177,57 @@ six chambers.
   - **Class-D** use the **jury-rigged black-market terminal** in the D-Block washroom, which
     charges a 15% markup. If a guard sees you on it, you are busted: you lose Compliance and the
     guard chases you. The world keeps running while the menu is open.
-- **Delivery:** a bought SCP is transported into a free chamber partway through the shift.
-- **Money vs risk:** contained SCPs pay Security research grants every minute. Each SCP's
-  containment integrity decays, and dangerous ones decay faster. Low integrity raises the chance
-  of a breach event, and at zero the SCP breaks out. Security gets *containment check* jobs to
-  restore integrity. Class-D buy SCPs for the opposite reason: more breaches mean more chances to
-  escape.
+- **Delivery:** the transport arrives partway through the shift. Until then the room's door reads
+  *IN TRANSIT — ROOM BEING FITTED*.
+- **Money vs risk:** contained SCPs pay Security research grants every minute. SCPs that need
+  maintenance lose containment integrity over time, and dangerous ones lose it faster. Low
+  integrity raises the chance of a breach event, and at zero an SCP that can breach does. Security
+  gets *containment check* jobs to restore integrity. Class-D buy SCPs for the opposite reason:
+  more breaches mean more chances to escape.
+- **Keter emergencies** grant Security temporary Level 4 access to the Keter Sector.
+
+### How each breach is recontained
+
+| SCP | Recontainment |
+|-----|---------------|
+| SCP-173 | Keep it in sight, take turns blinking, cage it (hold `E`, 3 s) |
+| SCP-096 | Wait until it sits down, bag it **from behind** (hold `E`, 4 s) |
+| SCP-049 | Shoot it to stagger it, then escort it back (hold `E`, 3 s, while it is staggered). Put down the 049-2 |
+| SCP-012 | Walk up with your eyes shut (hold `Q`) and close the case (hold `E`, 3 s) |
+| SCP-079 | Cut it off at three **network terminals**: Server Room, HCZ Security Post, LCZ Security Post |
+| SCP-106 | Run the **Recall Protocol** at the terminal outside its chamber (needs main power) |
+| SCP-939 | Move quietly: crouch or walk, never sprint. Gunfire draws them. Put both down |
+| SCP-682 | Concentrate fire until it collapses, then restrain it (hold `E`, 5 s) within 40 seconds |
+| SCP-999 | Pick it up |
+
+The guards know every procedure too (see *How the guards fight and contain* below).
+
+### SCP-914
+
+Stand at the control panel: the **dial** cycles ROUGH → COARSE → 1:1 → FINE → VERY FINE, and
+the **key** starts the machine. Put your **keycard** (or the weapon in your hand, if you have no
+card) in the **intake booth** on the left. After a few seconds of grinding gears, the result
+waits in the **output booth** on the right.
+
+- Keycards: ROUGH destroys it, COARSE lowers the level, 1:1 copies it, FINE raises it one level,
+  VERY FINE raises it two levels, but often turns it to dust.
+- Weapons: a pipe can become a baton, a baton a sidearm, a sidearm a rifle. On FINE or VERY FINE
+  it comes out fully loaded.
+
+### SCP-106 and the pocket dimension
+
+It rises out of the floor near someone, walks straight at them through walls and doors at a slow
+walk, and leaves black corrosion behind. Gunfire slows it. If it touches you, you fall into the
+**pocket dimension**: a rotting room with four passages. Only one leads back. Each passage ends in
+a faint shape, and the one that leads out flickers differently. Your health drains while you are
+there.
+
+### SCP-939
+
+Both instances are blind. They hear you **sprinting** from 17 m, walking from 8 m, crouching
+from 2 m, and **gunfire** from over 30 m. Officers moving and shooting attract them too. While
+they are loose, you may hear voices on the radio from people you know are already dead. Don't
+answer them.
 
 ### SCP-173
 
@@ -167,9 +240,9 @@ six chambers.
 - **Blinking:** near SCP-173 a blink meter drains and you blink involuntarily when it runs out.
   Press `Q` to blink on your own terms, ideally while someone else is watching it. NPCs blink
   too. During a power failure it is too dark to see it unless it is right next to you.
-- **When it breaches:** guards stop and stare it down, but they still blink. Security must find
-  it and **cage it**: keep your eyes on it and hold `E` for three seconds. If you leave it, MTF
-  eventually recontains it and the failure goes on your record.
+- **When it breaches:** a watch group of guards keeps it in sight and cages it. Security can do it
+  first: keep your eyes on it and hold `E` for three seconds. SCP-131 never blinks, so bringing
+  the eye pods along helps a lot.
 - **Class-D order: clean SCP-173's chamber.** A containment officer watches the statue and calls
   out "Blinking!" before he blinks. When he does, *you* have to be looking at it. Scrub three
   marked spots, then back out.
@@ -229,10 +302,18 @@ Guards (and the MTF) run their own AI:
 - **SCP-096:** officers keep their eyes on the floor near it. Very rarely one glances up, and
   that can be fatal. Anyone in its charge path dives aside. Once it sits down, an officer bags it
   from behind.
-- **SCP-999:** an officer walks up and carries it home.
+- **SCP-012:** the same eyes-down discipline; one officer walks up blind and closes the case.
+- **SCP-049:** officers shoot to stagger it, never letting it touch them; while it reels, one of
+  them takes it by the arm and walks it home. They put down any SCP-049-2 on sight.
+- **SCP-079:** an officer cuts the three network segments (after giving a Security player about
+  90 seconds to do it).
+- **SCP-106:** officers shoot to slow it while one runs to the recall terminal.
+- **SCP-682 / SCP-939:** concentrated fire. Once 682 collapses, an officer restrains it; once
+  both 939 are down, they are dragged back to their pen.
+- **SCP-999 / SCP-131:** an officer walks up and carries it home.
 - **Riots:** after a short delay to gear up, officers move in with batons.
-- **MTF Epsilon-11:** about 40 seconds into a breach (or a loose SCP-173 or SCP-096), a
-  three-man squad with rifles and armour arrives at the lobby elevator.
+- **MTF Epsilon-11:** about 40 seconds into a breach (or a loose 173, 096, 049, 012, 939, 106 or
+  682), a three-man squad with rifles and armour arrives at the lobby elevator.
 
 When the team finishes an emergency before you do, the task closes without a penalty. If you
 were there helping, you get half the reward.
@@ -276,11 +357,16 @@ js/
     Hazards.js             Test chamber floor field and roaming anomalies
     Profile.js             Saved Credits, shift statistics and the SCP roster
     scp/
-      catalog.js           SCP prices, research grants, integrity decay, breach risk
-      ScpManager.js        Roster, chambers, deliveries, income, integrity, observation rules
+      catalog.js           SCP prices, research grants, integrity decay, breach risk (18 SCPs)
+      ScpManager.js        Roster, rooms (construction → commissioned), deliveries, income,
+                           integrity, observation rules, breach / recontainment
+      ScpBase.js           Shared SCP entity plumbing: movement, chamber helpers, recon spec
       Scp173.js            SCP-173 model and behavior
       Scp096.js            SCP-096 model, poses and rage behavior
       SimpleScps.js        SCP-500 and SCP-999
+      SafeScps.js          SCP-529, 330, 207, 131, 005, 914
+      EuclidScps.js        SCP-294, 151, 079, 012, 049 (+049-2)
+      KeterScps.js         SCP-939, 106 (+ pocket dimension), 682
       voxelModel.js        Box-model geometry helper
   player/
     Player.js              Movement, collision, step-up, crouch, stamina, health, head bob
@@ -288,6 +374,8 @@ js/
     UI.js                  Menus, briefing, HUD, tracker, notifications, radio, result screen
   world/
     facilityLayout.js      The facility map plus gameplay points, terminals and first aid
+    containmentLayout.js   HCZ Wing, Keter Sector, Light Containment Sector, pocket dimension:
+                           one purpose-built room per SCP
     FacilityBuilder.js     Authoring API used by the layout
     VoxelWorld.js          Voxel grid, room painting, baked lighting, chunk meshing, queries
     Door.js                Doors, keycard readers, clearance, emergency release, seals, faults
@@ -325,7 +413,7 @@ When you open the game with `?debug`, the browser console gets these helpers:
 - `__credits(n)`: add Credits.
 - `__giveScp(id)`: install an SCP instantly.
 - `__resetScps()`: clear the roster.
-- `__event('scp', '173' | '096')`: breach a specific SCP.
+- `__event('scp', id)`: breach a specific SCP (for example `'682'`).
 - `__speed(n)`: fast-forward the simulation.
 
 ## Credits & licensing
@@ -333,4 +421,10 @@ When you open the game with `?debug`, the browser console gets these helpers:
 - Based on the **SCP Foundation** (<https://scp-wiki.wikidot.com>), licensed under
   [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The SCP emblem is used under
   the same license. Content derived from the SCP Foundation should be shared under CC BY-SA 3.0.
+- The SCPs in this game are adapted (loosely, for gameplay) from these SCP Wiki articles. The
+  authors of each are credited on the article pages: SCP-005, SCP-012, SCP-049, SCP-079,
+  SCP-096, SCP-106, SCP-131, SCP-151, SCP-173, SCP-207, SCP-294, SCP-330, SCP-500, SCP-529,
+  SCP-682, SCP-914, SCP-939 and SCP-999
+  (`https://scp-wiki.wikidot.com/scp-XXX`). All models, rooms and behaviour in the game are
+  original voxel work. No images from the wiki are used.
 - [three.js](https://threejs.org) r160, MIT License (see `vendor/three/LICENSE`).

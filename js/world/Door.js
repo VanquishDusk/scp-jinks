@@ -365,7 +365,7 @@ export class Door {
     const verb = this.isOpen ? 'Close' : 'Open';
     if (this.broken) return { text: `${this.name}`, sub: 'DESTROYED', denied: true };
     if (skeleton && !this.unpowered) return { text: `${verb} ${this.name}`, sub: 'SCP-005', denied: false };
-    if (this.locked) return { text: `${this.name}`, sub: 'LOCKED', denied: true };
+    if (this.locked) return { text: `${this.name}`, sub: this.locked.length <= 60 ? this.locked : 'LOCKED', denied: true };
     if (this.unpowered) return { text: `${this.name}`, sub: 'NO POWER', denied: true };
     if (this.passes > 0 && clearance < this.clearance) return { text: `${verb} ${this.name}`, sub: 'ROUTE AUTHORIZED', denied: false };
     if (this.sealed) return { text: `${this.name}`, sub: 'SEALED', denied: true };

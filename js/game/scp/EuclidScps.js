@@ -475,6 +475,8 @@ export class Scp049 extends ScpBase {
     const g = this.game;
     this.t += dt;
     this.stunT = Math.max(0, this.stunT - dt);
+    // Someone is escorting it by the arm: it stays compliant.
+    if (g.hold && g.hold.target === this && g.hold.t > 0) this.stunT = Math.max(this.stunT, 0.6);
     this.attackT = Math.max(0, this.attackT - dt);
     // Victims rise a few seconds later.
     for (const p of this.pending) p.t -= dt;

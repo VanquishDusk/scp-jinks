@@ -94,7 +94,13 @@ export class UI {
       resultTitle: $('result-title'),
       resultSub: $('result-sub'),
       resultStats: $('result-stats'),
+      talkName: $('talk-name'),
+      talkTitle: $('talk-title'),
+      talkText: $('talk-text'),
+      talkOptions: $('talk-options'),
+      bubbles: $('bubbles'),
     };
+    this.bubblePool = [];
     this.notes = [];
     this.radioTimer = 0;
     this.damageLevel = 0;
@@ -182,6 +188,7 @@ export class UI {
     }
     this.el.menu.classList.toggle('paused', this.stack[0] === 'pause' || this.stack[0] === 'shop');
     this.el.menu.classList.toggle('result', this.stack[0] === 'result');
+    this.el.menu.classList.toggle('talking', this.stack[0] === 'talk');
     if (name === 'title') this.updatePadStatus();
     const items = this.items();
     // Default focus: first role card the player has not seen, else first item.
@@ -230,6 +237,8 @@ export class UI {
       this.emit('resume');
     } else if (this.currentScreen === 'shop') {
       this.emit('close-shop');
+    } else if (this.currentScreen === 'talk') {
+      this.emit('close-talk');
     }
   }
 
@@ -256,6 +265,10 @@ export class UI {
     }
     if (item.dataset.buy) {
       this.emit('buy', item.dataset.buy);
+      return;
+    }
+    if (item.dataset.talk !== undefined) {
+      this.emit('talk', Number(item.dataset.talk));
       return;
     }
     if (item.dataset.role) {
@@ -303,6 +316,17 @@ export class UI {
     }
     if (this.layer !== 'menu') return;
     if (e.repeat && (e.code === 'Enter' || e.code === 'Escape')) return;
+    // Conversations: number keys pick an answer directly.
+    if (this.currentScreen === 'talk' && /^(Digit|Numpad)[1-9]$/.test(e.code) && !e.repeat) {
+      const i = Number(e.code.slice(-1)) - 1;
+      const it = this.items()[i];
+      if (it) {
+        this.focusIndex = i;
+        this.applyFocus();
+        this.activate(it);
+      }
+      return;
+    }
     switch (e.code) {
       case 'ArrowUp':
       case 'KeyW':
@@ -612,7 +636,7 @@ export class UI {
       list.appendChild(d);
       return;
     }
-    const kinds = { task: 'TASK', order: 'ORDER', emergency: 'EMERGENCY', opportunity: 'OPPORTUNITY' };
+    const kinds = { task: 'TASK', order: 'ORDER', emergency: 'EMERGENCY', opportunity: 'OPPORTUNITY', plot: 'PERSONAL' };
     for (const t of tasks) {
       const row = document.createElement('div');
       row.className = `task ${t.kind}${t.focused ? ' focused' : ''}`;
@@ -700,6 +724,62 @@ export class UI {
     if (keepFocus) {
       this.focusIndex = Math.min(prev, this.items().length - 1);
       this.applyFocus();
+    }
+  }
+
+  /** A conversation: { name, title, text, options: [label] }. */
+  openTalk(view) {
+    this.el.talkName.textContent = view.name;
+    this.el.talkTitle.textContent = view.title || '';
+    this.el.talkText.textContent = `“${view.text}”`;
+    const list = this.el.talkOptions;
+    list.innerHTML = '';
+    view.options.forEach((label, i) => {
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.dataset.talk = String(i);
+      const k = document.createElement('span');
+      k.className = 'k';
+      k.textContent = `${i + 1}.`;
+      div.append(k, document.createTextNode(label));
+      list.appendChild(div);
+    });
+    this.showLayer('menu');
+    this.stack = ['talk'];
+    this.renderScreen();
+  }
+
+  /** Speech bubbles: [{ x, y, text, scale, alpha, scp }] in screen pixels. */
+  setBubbles(list) {
+    const pool = this.bubblePool;
+    while (pool.length < list.length) {
+      const el = document.createElement('div');
+      el.className = 'bubble hidden';
+      this.el.bubbles.appendChild(el);
+      pool.push({ el, text: '', on: false });
+    }
+    for (let i = 0; i < pool.length; i++) {
+      const b = pool[i];
+      const it = list[i];
+      if (!it) {
+        if (b.on) {
+          b.el.classList.add('hidden');
+          b.on = false;
+        }
+        continue;
+      }
+      if (!b.on) {
+        b.el.classList.remove('hidden');
+        b.on = true;
+      }
+      if (b.text !== it.text) {
+        b.text = it.text;
+        b.el.textContent = it.text;
+      }
+      b.el.classList.toggle('scp', !!it.scp);
+      b.el.style.transform = `translate(${it.x.toFixed(1)}px, ${it.y.toFixed(1)}px) translate(-50%, -100%) scale(${it.scale.toFixed(3)})`;
+      b.el.style.opacity = it.alpha.toFixed(2);
+      b.el.style.zIndex = String(100 - i);
     }
   }
 

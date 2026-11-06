@@ -520,6 +520,11 @@ export function buildFacility(f) {
   P('w-res-1', 153, 50); P('w-res-2', 153, 88); P('w-res-3', 142, 64.5);
   P('w-resoff', 142, 56.5); P('w-laba', 167, 50); P('w-cafe', 88, 45.5);
   P('w-records', 127, 57); P('w-hub', 109, 70); P('w-medical', 131, 77.8);
+  // Where the rest of the staff start their day (see game/life/roster.js).
+  P('w-psych', 11, 57.5, { yaw: 180 });
+  P('w-director', 86, 113.6, { yaw: 0 });
+  P('w-lobby-desk', 110, 113.6, { yaw: 0 });
+  P('w-guard-research', 152.5, 65, { yaw: 90 });
   for (const [i, x, z] of [[1, 5, 54], [2, 16, 54.5], [3, 11, 65], [4, 5, 65.5], [5, 17, 65.5], [6, 6, 76], [7, 15, 76]]) {
     P(`w-commons-${i}`, x, z);
   }

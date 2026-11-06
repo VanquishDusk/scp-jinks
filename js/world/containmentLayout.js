@@ -478,6 +478,8 @@ export function buildContainment(f) {
   PT('w-lcz-lab', 284, 88);
   PT('w-lcz-lounge', 263, 107);
   PT('w-hcz-post', 150, 25);
+  PT('w-keter-obs', 253.5, 8.5, { yaw: 0 });
+  PT('w-generator', 212, 27);
 
   f.terminal('net-a', 141, 3.6, 72, 'e', 'NETWORK');
   f.terminal('net-b', 143, 3.6, 22.4, 'e', 'NETWORK');

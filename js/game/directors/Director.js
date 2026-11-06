@@ -238,56 +238,9 @@ export class Director {
   }
 
   // ---- NPCs ---------------------------------------------------------------------------
-  /** Background staff, patrolling guards and Class-D that inhabit the site. */
+  /** Everyone who works (or is held) on site: see game/life/. */
   spawnAmbient() {
-    const g = this.game;
-    const P = (...ids) => ids.map((id) => {
-      const p = g.point(id);
-      return [p.x, p.z];
-    });
-    const n = this.names;
-    const sci = [
-      g.spawnNpc({ id: 'sci-harrow', name: n[1], title: 'Researcher', kind: 'scientist', at: 'w-res-1', chatter: ['Busy morning. Three tests before lunch.', "Don't touch anything in Lab A, please."] }),
-      g.spawnNpc({ id: 'sci-okafor', name: n[2], title: 'Research Supervisor', kind: 'scientist', at: 'vip-resoff', chatter: ['The overnight logs are a mess again.', 'I need those reports on my desk.'] }),
-      g.spawnNpc({ id: 'sci-vance', name: n[3], title: 'Records Archivist', kind: 'scientist', at: 'vip-records', chatter: ['Everything is filed. Mostly.', 'Level 2 and up only in here.'] }),
-      g.spawnNpc({ id: 'doc-reyes', name: n[4], title: 'Medical Officer', kind: 'scientist', at: 'doc-medical', chatter: ['Use the first aid stations if you get hurt.', 'Quiet day so far. Let us keep it that way.'] }),
-      g.spawnNpc({ id: 'sci-cafe', name: n[5], title: 'Junior Researcher', kind: 'scientist', at: 'w-cafe', chatter: ['The coffee here is technically non-anomalous.', 'Is it lunch already?'] }),
-      g.spawnNpc({ id: 'sci-lindqvist', name: n[0], title: 'Senior Researcher', kind: 'scientist', at: 'vip-laba', chatter: ['Lab A is running sequence trials today.', 'Have you seen my clipboard?'] }),
-    ];
-    sci[0].wander(P('w-res-1', 'w-res-2', 'w-res-3', 'w-laba', 'w-resoff'), [6, 14]);
-    sci[4].wander(P('w-cafe', 'dest-cafeteria', 'w-hub'), [6, 14]);
-    sci[5].wander(P('vip-laba', 'w-laba', 'w-res-1', 'sci-observation'), [8, 16]);
-    const commons = P('w-commons-1', 'w-commons-2', 'w-commons-3', 'w-commons-4', 'w-commons-5', 'w-commons-6', 'w-commons-7');
-    for (const [i, at] of [[1, 'w-commons-1'], [2, 'w-commons-5'], [3, 'w-commons-6']]) {
-      const d = g.spawnNpc({
-        id: `classd-${i}`,
-        name: `D-${1000 + Math.floor(Math.random() * 9000)}`,
-        title: 'Class-D Personnel',
-        kind: 'classd',
-        at,
-        chatter: ['Keep your head down and they leave you alone.', 'Heard someone got picked for testing again.', "Don't talk to me, man.", 'The guards change patrols every shift. Watch them.'],
-      });
-      d.wander(commons, [4, 12]);
-    }
-    const gn = this.guardNames;
-    const guard = (id, name, at, chatter, extra = {}) => g.spawnNpc({ id, name, title: 'Security Officer', kind: 'guard', at, chatter, ...extra });
-    guard('guard-booth', gn[1], 'guard-booth', ['Checkpoint Alpha, all quiet.', 'Stay out of trouble.']);
-    guard('guard-hcz', gn[2], 'guard-hcz', ['Nobody goes past that gate.', 'Long shift. Longer if that gate opens.']);
-    guard('guard-lobby', gn[3], 'guard-lobby', ['Lobby is clear.', 'Elevators have been down all week.']);
-    // Roving patrols take a different route every shift.
-    const routesA = shuffle(['patrol-dblock', 'patrol-hub', 'w-hub', 'patrol-cafeteria', 'patrol-storage', 'patrol-hczwing']);
-    const routesB = shuffle(['patrol-hub', 'patrol-research', 'patrol-medical', 'patrol-north', 'patrol-lobby', 'patrol-lcz', 'patrol-lcz-east']);
-    const pa = guard('guard-patrol-1', gn[4], 'patrol-hub', ['Keep moving.', 'Eyes forward.']);
-    const pb = guard('guard-patrol-2', gn[5], 'patrol-research', ['Nothing to see here.', 'Move along.']);
-    pa.wander(P(...routesA.slice(0, 4)), [3, 9]);
-    pb.wander(P(...routesB.slice(0, 4)), [3, 9]);
-    g.spawnNpc({ id: 'chief', name: 'Chief Mercer', title: 'Head of Security', kind: 'guard', at: 'chief', chatter: ['Check your pager, officer.', 'Eyes open.'] });
-    // The containment sectors have their own posts.
-    guard('guard-keter', gn[6], 'guard-keter', ['Keter Sector is Level 4. Turn around.', 'You do not want to go in there.'], { clearance: 4 });
-    guard('guard-keter-post', gn[7], 'guard-keter-post', ['Quiet shift. Keep it that way.', 'Every alarm in here means something.'], { clearance: 4 });
-    guard('guard-lcz', gn[8], 'guard-lcz', ['Light Containment. Mind the cat.', 'Two sweets. Only two. I mean it.'], { clearance: 3 });
-    const lcz = g.spawnNpc({ id: 'sci-lcz', name: n[6], title: 'Containment Researcher', kind: 'scientist', at: 'w-lcz-lab', chatter: ['SCP-914 output logs are a nightmare.', 'Safe class does not mean harmless.'] });
-    lcz.wander(P('w-lcz-1', 'w-lcz-2', 'w-lcz-lab', 'w-lcz-lounge'), [8, 16]);
+    this.game.life.populate();
   }
 
   guards() {
@@ -338,6 +291,8 @@ export class Director {
   }
 
   returnToPost(npc) {
+    // People on the roster go back to their own routine.
+    if (this.game.life && this.game.life.resume(npc)) return;
     npc.stop();
     if (npc.id.startsWith('guard-patrol')) {
       const route = npc.lastRoute || null;

@@ -68,7 +68,7 @@ export class GuardAI {
         moveT: 0,
         seenPlayerAt: -99,
         sees173: false,
-        discipline: n.mtf ? 0.997 : 0.93 + Math.random() * 0.06,
+        discipline: n.mtf ? 0.997 : n.person ? 0.9 + n.person.traits.drive * 0.05 + n.person.traits.nerve * 0.045 : 0.93 + Math.random() * 0.06,
         glanceT: 0,
         swingT: 0,
       };

@@ -641,7 +641,7 @@ export class SecurityDirector extends Director {
   vipCandidates() {
     return ['sci-okafor', 'sci-vance', 'sci-lindqvist', 'sci-harrow']
       .map((id) => this.game.npcs.get(id))
-      .filter((n) => n && n.alive && !n.hidden && !this.tasks.inUse(n.id) && !n.shelter);
+      .filter((n) => n && n.alive && !n.hidden && !this.tasks.inUse(n.id) && !n.shelter && !n.engaged && !n.talking && !n.action);
   }
 
   makeEscort() {
@@ -684,7 +684,7 @@ export class SecurityDirector extends Director {
   makeDelivery() {
     const g = this.game;
     const src = this.pt(pick(['doc-records', 'doc-admin']));
-    const recipients = [this.chief, g.npcs.get('sci-okafor'), g.npcs.get('doc-reyes')].filter((n) => n && n.alive && !n.hidden && !this.tasks.inUse(n.id));
+    const recipients = [this.chief, g.npcs.get('sci-okafor'), g.npcs.get('doc-reyes')].filter((n) => n && n.alive && !n.hidden && !this.tasks.inUse(n.id) && !n.engaged && !n.action);
     if (!recipients.length) return null;
     const recipient = pick(recipients);
     const doc = g.addPickup({
@@ -779,7 +779,7 @@ export class SecurityDirector extends Director {
   }
 
   classdCandidates() {
-    return [...this.game.npcs.values()].filter((n) => n.kind === 'classd' && n.alive && !n.rioting && !n.hidden && !this.tasks.inUse(n.id));
+    return [...this.game.npcs.values()].filter((n) => n.kind === 'classd' && n.alive && !n.rioting && !n.hidden && !this.tasks.inUse(n.id) && !n.engaged && !n.talking && !n.action);
   }
 
   makeTransfer() {

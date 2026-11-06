@@ -123,6 +123,68 @@ html, body {
 }
 .menu.paused .menu-vignette { background: rgba(0, 0, 0, 0.66); }
 .menu.result .menu-vignette { background: rgba(0, 0, 0, 0.78); }
+.menu.talking .menu-vignette { background: linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.3) 34%, rgba(0, 0, 0, 0) 58%); }
+
+/* ---------------------------------------------------------------- conversations */
+.screen[data-screen="talk"] {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 16px 5vh;
+  overflow: hidden;
+}
+.talk-box {
+  width: min(840px, 100%);
+  max-height: 62vh;
+  overflow-y: auto;
+  background: rgba(8, 9, 11, 0.88);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  padding: 12px 16px 10px;
+  text-shadow: 2px 2px 0 #000;
+}
+.talk-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 4px; }
+.talk-name { color: var(--warn); font-size: 24px; text-transform: uppercase; letter-spacing: 0.04em; }
+.talk-title { color: var(--dim); font-size: 17px; text-transform: uppercase; letter-spacing: 0.06em; }
+.talk-text { font-size: 23px; line-height: 1.18; color: #fff; margin-bottom: 8px; min-height: 2.3em; }
+.talk-options { margin-top: 2px; }
+.talk-options .item { font-size: 21px; text-transform: none; max-width: none; padding: 3px 10px 3px 26px; }
+.talk-options .item .k { color: var(--dim); margin-right: 8px; }
+.talk-foot { color: var(--dim); font-size: 15px; margin-top: 6px; letter-spacing: 0.04em; }
+
+/* Speech bubbles above heads */
+.bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 4; overflow: hidden; }
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 260px;
+  padding: 2px 8px 3px;
+  background: rgba(10, 10, 12, 0.78);
+  border: 1px solid rgba(220, 220, 210, 0.22);
+  color: #f0efe6;
+  font-size: 17px;
+  line-height: 1.12;
+  text-align: center;
+  text-shadow: 1px 1px 0 #000;
+  white-space: normal;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: rgba(10, 10, 12, 0.78);
+  border-bottom: 0;
+}
+.bubble.scp { color: #ff9a80; border-color: rgba(255, 110, 80, 0.4); }
+.bubble.hidden { display: none; }
 
 .screen {
   position: relative;
@@ -541,6 +603,7 @@ h2 {
 .task.focused { opacity: 1; border-left-color: var(--warn); background: rgba(226, 184, 74, 0.08); }
 .task.emergency { border-left-color: #ff4a3a; }
 .task.opportunity { border-left-color: #6aaee8; }
+.task.plot { border-left-color: #c89ae0; }
 .task.order { border-left-color: #e8772e; }
 .task .t-top { display: flex; justify-content: space-between; gap: 8px; font-size: 19px; color: #fff; text-transform: uppercase; line-height: 1.05; }
 .task .t-time { color: var(--text); white-space: nowrap; }
@@ -548,6 +611,7 @@ h2 {
 .task .t-kind { font-size: 14px; letter-spacing: 0.1em; color: var(--dim); }
 .task.emergency .t-kind { color: #ff6a50; }
 .task.opportunity .t-kind { color: #9fc7e8; }
+.task.plot .t-kind { color: #d6b0ea; }
 .task .t-cur { font-size: 18px; color: var(--warn); }
 .task .t-prog { font-size: 16px; color: var(--text); }
 .task .t-detail { font-size: 15px; color: var(--dim); }
@@ -604,6 +668,8 @@ h2 {
 .note.emergency .n-title, .note.suspended .n-title { color: #ff6a50; }
 .note.optional { border-right-color: #6aaee8; }
 .note.optional .n-title { color: #9fc7e8; }
+.note.personal { border-right-color: #c89ae0; }
+.note.personal .n-title { color: #d6b0ea; }
 .note.bonus { border-right-color: #e8d27a; }
 .note.bonus .n-title { color: #fff; font-size: 18px; letter-spacing: 0.04em; }
 @keyframes noteIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }

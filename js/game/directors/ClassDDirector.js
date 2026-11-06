@@ -89,7 +89,15 @@ export class ClassDDirector extends Director {
     }
 
     this.templates = {
-      testing: { weight: 3, cooldown: 200, can: () => !this.game.events.busy, make: () => this.makeTesting() },
+      testing: {
+        weight: 3,
+        cooldown: 200,
+        can: () => {
+          const x = this.game.life && this.game.life.experiments.active;
+          return !this.game.events.busy && !(x && (x.type === 'lab' || x.type === 'field'));
+        },
+        make: () => this.makeTesting(),
+      },
       cleanup: { weight: 3, cooldown: 70, make: () => this.makeCleanup() },
       supplies: { weight: 2, cooldown: 120, make: () => this.makeSupplies() },
       medical: { weight: 1, cooldown: 300, make: () => this.makeMedical() },
@@ -124,7 +132,7 @@ export class ClassDDirector extends Director {
       text: 'Use the black-market terminal',
       sub: 'Make sure no guard is watching',
       use: (gm) => {
-        const watcher = this.guards().find((gd) => this.canSee(gd, 14));
+        const watcher = this.guards().find((gd) => this.canSee(gd, 14) && !this.looksAway(gd));
         if (watcher) {
           this.pursue(watcher, `What are you doing on that terminal, ${gm.designation}?!`);
           this.changeStanding(-20, 'Caught using contraband');
@@ -192,7 +200,47 @@ export class ClassDDirector extends Director {
   }
 
   isSeen() {
-    return this.guards().some((gd) => this.canSee(gd, 14));
+    return this.guards().some((gd) => this.canSee(gd, 14) && !this.looksAway(gd));
+  }
+
+  /** A guard who was paid (or owes you) and is not going to see anything. */
+  looksAway(gd) {
+    const life = this.game.life;
+    return !this.hunted && !!life && life.talk.isBlind(gd);
+  }
+
+  /** A guard who likes you, or has a soft heart, warns you once before giving chase. */
+  warn(gd) {
+    const g = this.game;
+    if (!gd.person || this.hunted) return false;
+    const t = gd.person.traits;
+    const rel = g.life.rel(gd);
+    if (!(rel >= 25 || (t.heart > 0.72 && rel > -10))) return false;
+    const now = g.time;
+    if (gd.warnedAt == null || now - gd.warnedAt > 45) {
+      gd.warnedAt = now;
+      gd.faceToward(g.player.pos.x, g.player.pos.z);
+      gd.say(pick([`${g.designation}. You shouldn't be here. Go back. Now.`, 'Hey. Back to the block — I didn\'t see you.', 'Turn around. I mean it. Last warning.']), 4);
+      if (gd.mode !== 'idle') gd.stop();
+      else gd.markScript();
+      return true;
+    }
+    return now - gd.warnedAt < 9;
+  }
+
+  /** Staff saw you out of bounds and called it in: the nearest free officer comes to look. */
+  reportSighting(by) {
+    const g = this.game;
+    if (this.playerHostile || this.finished) return;
+    const p = g.player.pos;
+    this.changeStanding(-4, `Reported by ${by.name}`);
+    const gd = this.guards()
+      .filter((x) => !x.pursuing && !(x.ai && x.ai.job) && x.id !== 'chief' && !x.busy && !this.looksAway(x) && !x.engaged)
+      .sort((a, b) => Math.hypot(a.pos.x - p.x, a.pos.z - p.z) - Math.hypot(b.pos.x - p.x, b.pos.z - p.z))[0];
+    if (!gd || Math.hypot(gd.pos.x - p.x, gd.pos.z - p.z) > 70) return;
+    this.after(1.2, () => g.say(gd.name, pick(['Copy. On my way.', 'Checking it out.', 'Roger, heading over.']), 'radio'));
+    const at = g.pointNear(p.x, p.z, 2);
+    gd.goTo(at[0], at[1], { speed: 3.2 }).then(() => gd.markScript());
   }
 
   canSee(gd, range) {
@@ -256,7 +304,9 @@ export class ClassDDirector extends Director {
       if (!out && !this.hunted) continue;
       const range = ev.powerOut ? 6 : ev.busy ? 9 : 13;
       if (this.canSee(gd, range)) {
-        this.pursue(gd);
+        if (this.looksAway(gd) || this.warn(gd)) continue;
+        const cruel = gd.person && gd.person.traits.heart < 0.3;
+        this.pursue(gd, cruel ? pick(['Hey, orange! I\'ve been waiting for this.', 'Run, D-class. Please. Run.', 'Out of your cage? Big mistake.']) : undefined);
         if (!this.hunted && !chased) this.changeStanding(-12, 'Spotted out of bounds');
         chased = true;
       }
@@ -842,6 +892,7 @@ export class ClassDDirector extends Director {
         this.sealTestDoor(area, false);
         gm.testFloor.stop();
         for (const fn of ctx.cleanup) fn();
+        if (sci.engaged === 'test') gm.life.release(sci);
       },
       announce: `${g.designation}, report to ${area.label} for testing.`,
     });
@@ -849,6 +900,23 @@ export class ClassDDirector extends Director {
 
   testerAt(post) {
     const g = this.game;
+    const life = g.life;
+    // A researcher from the roster drops what they are doing and runs the test.
+    if (life) {
+      const p = this.pt(post);
+      const free = life.people.filter((n) => n.alive && n.kind === 'scientist' && ['research', 'errands'].includes(n.def.job) && n.def.slot !== 'sci-keter'
+        && !n.engaged && !n.talking && !n.busy && !n.shelter && !n.action && !this.tasks.inUse(n.id));
+      const sci = free.sort((a, b) => Math.hypot(a.pos.x - p.x, a.pos.z - p.z) - Math.hypot(b.pos.x - p.x, b.pos.z - p.z))[0];
+      if (sci) {
+        life.take(sci, 'test');
+        sci.setItem('clipboard');
+        sci.goTo(p.x, p.z, { speed: 1.8 }).then(() => {
+          sci.faceYaw = ((p.yaw || 0) * Math.PI) / 180;
+          sci.pose = 'tap';
+        });
+        return sci;
+      }
+    }
     let sci = g.npcs.get('tester');
     if (!sci || !sci.alive) {
       sci = g.spawnNpc({ id: 'tester', name: this.names[6], title: 'Senior Researcher', kind: 'scientist', at: post, chatter: ['Follow the instructions and you will be fine.', 'Please do not make this difficult.'] });

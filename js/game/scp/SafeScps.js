@@ -511,8 +511,20 @@ export class Scp914 extends ScpBase {
     return { ok: true, message: 'THE KEY TURNS. GEARS BEGIN TO GRIND.' };
   }
 
+  /** A staff experiment: the machine runs with the researchers' own sample (no output for the player). */
+  simulate() {
+    if (this.running) return false;
+    this.running = 7;
+    this.silent = true;
+    return true;
+  }
+
   finish() {
     const g = this.game;
+    if (this.silent) {
+      this.silent = false;
+      return;
+    }
     const [ox, oz] = this.w(3.5, 0.6);
     const r = this.result;
     if (!r) {

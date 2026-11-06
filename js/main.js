@@ -94,6 +94,8 @@ async function boot() {
   };
   const projected = new THREE.Vector3();
   const camSpace = new THREE.Vector3();
+  const bubbleAt = new THREE.Vector3();
+  const bubbleList = [];
 
   const goMenu = () => {
     state = 'menu';
@@ -199,6 +201,69 @@ async function boot() {
     ui.openShop(shopMode, game.scps.listing(shopMode), profile.credits, true, r.message);
   });
   ui.on('close-shop', closeShop);
+
+  // ---- Talking to people -------------------------------------------------------
+  // The world keeps running while you talk; you just stand still.
+  const closeTalk = () => {
+    if (state !== 'talk') return;
+    state = 'playing';
+    ui.showLayer('none');
+    ui.showHud(true);
+    input.keysPressed.clear();
+    suppressPauseUntil = performance.now() + 250;
+    if (!input.usingPad) input.requestLock();
+  };
+  game.onTalk = (view) => {
+    if (state === 'playing') {
+      state = 'talk';
+      input.exitLock();
+      ui.setPrompt(null);
+      ui.setHold(0);
+      ui.setMarker(null);
+      ui.setCapture(false);
+      ui.showHud(false);
+    }
+    if (state === 'talk') ui.openTalk(view);
+  };
+  game.onTalkEnd = closeTalk;
+  ui.on('talk', (i) => {
+    if (state === 'talk') game.life.talk.choose(i);
+  });
+  ui.on('close-talk', () => {
+    if (state === 'talk') game.life.talk.close();
+  });
+
+  /** Speech bubbles over the heads of people near the camera. */
+  const updateBubbles = () => {
+    bubbleList.length = 0;
+    const life = game.life;
+    if (life && life.people.length) {
+      const cam = game.camera;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const c = cam.position;
+      const add = (pos, text, scp) => {
+        const d = Math.hypot(pos.x - c.x, pos.z - c.z);
+        if (d > 15) return;
+        camSpace.copy(pos).applyMatrix4(cam.matrixWorldInverse);
+        if (camSpace.z > -0.3) return;
+        if (!game.world.visible(c.x / 0.5, c.y / 0.5, c.z / 0.5, pos.x / 0.5, pos.y / 0.5, pos.z / 0.5)) return;
+        projected.copy(pos).project(cam);
+        const x = (projected.x * 0.5 + 0.5) * w;
+        const y = (-projected.y * 0.5 + 0.5) * h;
+        if (x < -100 || x > w + 100 || y < -40 || y > h + 60) return;
+        bubbleList.push({ x, y, text, scp, d, scale: Math.max(0.62, Math.min(1.1, 1.25 - d / 16)), alpha: Math.max(0.25, Math.min(1, 1.5 - d / 12)) });
+      };
+      for (const { n } of life.bubbles(8)) {
+        if (n.talking && state === 'talk') continue;
+        add(n.headTop(bubbleAt), n.bubble.text, false);
+      }
+      for (const b of life.experiments.extra) add(b.pos, b.text, true);
+      bubbleList.sort((a, b) => a.d - b.d);
+      if (bubbleList.length > 7) bubbleList.length = 7;
+    }
+    ui.setBubbles(bubbleList);
+  };
 
   // Shift over (escaped, completed or terminated): let the moment land, then
   // show the summary screen.
@@ -363,6 +428,13 @@ async function boot() {
         }
         updateMarker();
       }
+    } else if (state === 'talk') {
+      game.update(dt, idleInput);
+      ui.setCapture(false);
+      const dir = input.padMenuDir();
+      if (dir) ui.nav(dir);
+      if (input.padConfirm()) ui.activate();
+      if (input.padBack()) game.life.talk.close();
     } else if (state === 'shop') {
       game.update(dt, idleInput);
       const dir = input.padMenuDir();
@@ -394,6 +466,11 @@ async function boot() {
       if (input.padStart()) resume();
     }
 
+    if (state === 'playing' || state === 'talk' || state === 'shop' || state === 'ending') updateBubbles();
+    else if (bubbleList.length || state === 'menu') {
+      bubbleList.length = 0;
+      ui.setBubbles(bubbleList);
+    }
     ui.tick(dt);
     const showHands = state === 'playing' || state === 'paused' || state === 'shop' || state === 'ending';
     renderer.render(game.scene, game.camera, showHands ? game.combat.view.scene : null);

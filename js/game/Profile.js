@@ -11,6 +11,11 @@ export class Profile {
     this.escapes = 0;
     this.terminations = 0;
     this.scps = []; // [{ id, slot, integrity }]
+    // The people of the site (see game/life/roster.js) and who the player is.
+    this.staff = {};
+    this.ties = {};
+    this.memorial = [];
+    this.identity = {};
     this.load();
   }
 
@@ -46,6 +51,10 @@ export class Profile {
           .filter((s) => s && typeof s.id === 'string' && !seen.has(s.id) && seen.add(s.id))
           .map((s) => ({ id: s.id, integrity: 100 }));
       }
+      if (d.staff && typeof d.staff === 'object') this.staff = d.staff;
+      if (d.ties && typeof d.ties === 'object') this.ties = d.ties;
+      if (Array.isArray(d.memorial)) this.memorial = d.memorial;
+      if (d.identity && typeof d.identity === 'object') this.identity = d.identity;
     } catch {
       /* storage unavailable */
     }
@@ -61,6 +70,10 @@ export class Profile {
           escapes: this.escapes,
           terminations: this.terminations,
           scps: this.scps,
+          staff: this.staff,
+          ties: this.ties,
+          memorial: this.memorial,
+          identity: this.identity,
         }),
       );
     } catch {

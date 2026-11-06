@@ -267,7 +267,7 @@ export class Scp096 {
   onRelease() {
     if (this.raging) return;
     const g = this.game;
-    const people = [...g.npcs.values()].filter((n) => n.alive && (n.kind === 'scientist' || n.kind === 'guard'));
+    const people = [...g.npcs.values()].filter((n) => n.alive && n.staff);
     if (!people.length) return;
     // A monitor glitch showed its face to someone, somewhere on site.
     const victim = people[Math.floor(Math.random() * people.length)];

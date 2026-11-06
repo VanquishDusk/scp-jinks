@@ -241,7 +241,8 @@ let taskSeq = 1;
 export class Task {
   /**
    * kind: 'task' (assigned job) | 'order' (Class-D instruction) |
-   *       'emergency' | 'opportunity' (self-directed, no penalty for ignoring)
+   *       'emergency' | 'opportunity' (self-directed, no penalty for ignoring) |
+   *       'plot' (something you agreed to do for somebody: see game/life/talk.js)
    * deadline: seconds to finish the whole task (null = none)
    * reward: Credits on completion; penalty: Credits lost on failure
    * standing: [gain, loss] applied to Standing on completion / failure
@@ -315,9 +316,9 @@ export class TaskManager {
     task.delay = 0.3;
     if (!this.focusId || task.kind === 'emergency') this.focusId = task.id;
     if (!quiet) {
-      const titles = { task: 'NEW TASK', order: 'NEW ORDER', emergency: 'EMERGENCY', opportunity: 'OPPORTUNITY' };
+      const titles = { task: 'NEW TASK', order: 'NEW ORDER', emergency: 'EMERGENCY', opportunity: 'OPPORTUNITY', plot: 'PERSONAL' };
       this.game.ui.notify({
-        type: task.kind === 'emergency' ? 'emergency' : task.kind === 'opportunity' ? 'optional' : 'new',
+        type: task.kind === 'emergency' ? 'emergency' : task.kind === 'opportunity' ? 'optional' : task.kind === 'plot' ? 'personal' : 'new',
         title: titles[task.kind],
         text: task.title,
         sub: task.deadline ? `${task.giver ? `${task.giver} · ` : ''}${fmt(task.deadline)} to complete` : task.giver,
@@ -373,7 +374,7 @@ export class TaskManager {
     if (t.status !== 'active') return;
     const game = this.game;
     this._end(t, 'failed', false);
-    if (t.kind !== 'opportunity') {
+    if (t.kind !== 'opportunity' && t.kind !== 'plot') {
       this.failedCount++;
       this.history.push({ title: t.title, status: 'failed' });
     }
@@ -421,7 +422,7 @@ export class TaskManager {
           t.status = 'complete';
           if (t.reward) this.award(t.reward);
           if (t.standing[0]) game.director.changeStanding(t.standing[0]);
-          game.ui.notify({ type: 'assignment', title: t.kind === 'opportunity' ? 'SUCCESS' : 'TASK COMPLETE', text: t.title, credits: (s.reward || 0) + t.reward });
+          game.ui.notify({ type: 'assignment', title: t.kind === 'opportunity' || t.kind === 'plot' ? 'SUCCESS' : 'TASK COMPLETE', text: t.title, credits: (s.reward || 0) + t.reward });
           this.history.push({ title: t.title, status: 'complete' });
           if (t.onComplete) t.onComplete(game);
           if (t.onEnd) t.onEnd(game, 'complete');

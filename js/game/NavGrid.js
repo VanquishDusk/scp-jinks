@@ -184,7 +184,7 @@ export class NavGrid {
   }
 
   /** Path between world points → array of [x, z] (meters) or null. */
-  findPath(sx, sz, tx, tz, maxNodes = 20000) {
+  findPath(sx, sz, tx, tz, maxNodes = 60000) {
     const w = this.w;
     const s = this.nearest(Math.floor(sx / VOXEL), Math.floor(sz / VOXEL));
     const t = this.nearest(Math.floor(tx / VOXEL), Math.floor(tz / VOXEL));

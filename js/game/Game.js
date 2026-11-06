@@ -22,6 +22,8 @@ import { SecurityDirector } from './directors/SecurityDirector.js';
 import { ScpManager } from './scp/ScpManager.js';
 import { Combat } from './combat/Combat.js';
 import { GuardAI } from './GuardAI.js';
+import { Life } from './life/Life.js';
+import { remember } from './life/roster.js';
 
 const FOG_COLOR = 0x07080a;
 const INTERACT_RANGE = 2.4;
@@ -166,6 +168,7 @@ export class Game {
     this.tasks = new TaskManager(this);
     this.combat = new Combat(this);
     this.guardAI = new GuardAI(this);
+    this.life = new Life(this);
     progress(1, 'Facility online');
     await nextFrame();
   }
@@ -373,6 +376,7 @@ export class Game {
     if (this.scps) this.scps.reset(true);
     if (this.combat) this.combat.reset(null);
     if (this.guardAI) this.guardAI.reset();
+    if (this.life) this.life.reset();
   }
 
   // ---------------------------------------------------------------------------
@@ -381,7 +385,10 @@ export class Game {
   newGame(roleId) {
     this.clearSession();
     this.role = ROLES[roleId];
-    this.designation = this.role.makeDesignation();
+    // The same person comes back shift after shift (until they die, escape or are let go).
+    const ids = this.profile.identity || (this.profile.identity = {});
+    if (!ids[roleId]) ids[roleId] = this.role.makeDesignation();
+    this.designation = ids[roleId];
     for (const d of this.doors) d.reset();
     this.scps.setupRooms();
     this.noises = [];
@@ -431,6 +438,18 @@ export class Game {
     if (this.ended) return;
     this.ended = result;
     if (this.director) this.director.stop();
+    if (this.life && this.life.talk.npc) this.life.talk.close();
+    // A run that ends the person's time on site: next shift is somebody new.
+    if (['terminated', 'detained', 'escaped', 'dismissed'].includes(result)) {
+      const role = this.role.id;
+      if (result === 'terminated') remember(this.profile, { name: this.designation, first: this.designation, kind: role, slot: 'player' }, 'died', this.player.lastSource ? 'an anomaly' : 'unknown');
+      if (result === 'escaped') remember(this.profile, { name: this.designation, first: this.designation, kind: role, slot: 'player' }, 'escaped');
+      if (this.profile.identity) this.profile.identity[role] = null;
+      for (const p of Object.values(this.profile.staff || {})) {
+        if (p.rel) p.rel[role] = 0;
+        delete p.metAs;
+      }
+    }
     this.profile.record(result);
     const om = this.tasks;
     const summary = {
@@ -471,13 +490,14 @@ export class Game {
 
   onNpcDeath(npc, attacker = null) {
     if (this.ended) return;
+    if (this.life) this.life.onDeath(npc, attacker);
     if (attacker === this.player) {
       this.ui.toast(`${npc.name.toUpperCase()} IS DOWN`, true);
       return; // the directors judge the player's use of force (onAttack)
     }
-    if (npc.kind === 'scientist' || npc.kind === 'guard') {
+    if (npc.staff) {
       this.ui.toast(`${npc.name.toUpperCase()} IS DOWN`, true);
-      if (this.role.id === 'security' && npc.kind === 'scientist' && this.director) this.director.changeStanding(-8, 'Personnel casualty on your watch');
+      if (this.role.id === 'security' && npc.kind !== 'guard' && this.director) this.director.changeStanding(-8, 'Personnel casualty on your watch');
     }
   }
 
@@ -495,6 +515,7 @@ export class Game {
 
     if (this.director) this.director.update(dt);
     if (!this.ended) this.guardAI.update(dt);
+    this.life.update(dt);
     for (const n of this.npcs.values()) n.update(dt);
     if (!this.ended) this.scps.update(dt);
 

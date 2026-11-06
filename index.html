@@ -101,6 +101,9 @@
     </div>
   </div>
 
+  <!-- Speech bubbles over people's heads (projected every frame). -->
+  <div id="bubbles" class="bubbles" aria-hidden="true"></div>
+
   <!-- ===================== MENUS ===================== -->
   <div id="menu" class="layer menu hidden">
     <div class="menu-vignette"></div>
@@ -198,6 +201,15 @@
         <div class="item" data-action="close-shop">Close Terminal</div>
       </nav>
       <div class="footer small" id="shop-foot"></div>
+    </section>
+
+    <section class="screen" data-screen="talk">
+      <div class="talk-box">
+        <div class="talk-head"><span class="talk-name" id="talk-name"></span><span class="talk-title" id="talk-title"></span></div>
+        <div class="talk-text" id="talk-text"></div>
+        <nav class="items talk-options" id="talk-options"></nav>
+        <div class="talk-foot" id="talk-foot">W/S or ↑↓ choose · Enter or click · 1–9 · Esc to leave</div>
+      </div>
     </section>
 
     <section class="screen" data-screen="result">

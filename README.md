@@ -197,7 +197,7 @@ The facility is about **three times larger** than before:
 | SCP-079 | Cut it off at three **network terminals**: Server Room, HCZ Security Post, LCZ Security Post |
 | SCP-106 | Run the **Recall Protocol** at the terminal outside its chamber (needs main power) |
 | SCP-939 | Move quietly: crouch or walk, never sprint. Gunfire draws them. Put both down |
-| SCP-682 | Concentrate fire until it collapses, then restrain it (hold `E`, 5 s) within 40 seconds |
+| SCP-682 | Concentrate fire until it collapses, then restrain it (hold `E`, 5 s) within 45 seconds |
 | SCP-999 | Pick it up |
 
 The guards know every procedure too (see *How the guards fight and contain* below).

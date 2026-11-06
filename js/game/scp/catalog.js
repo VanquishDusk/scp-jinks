@@ -126,7 +126,7 @@ export const CATALOG = {
     id: '682', name: 'SCP-682', nick: 'Hard-to-Destroy Reptile', cls: 'Keter', sector: 'Keter Sector',
     price: 14000, income: 260, decay: 8, risk: 9,
     desc: 'A huge, reptile-like creature of extreme hostility that adapts to and survives anything. Kept submerged in a tank of acid. It hates all life.',
-    perk: 'Breach: tears through doors. Cannot be killed — only knocked down for a while.',
+    perk: 'Breach: tears through doors. Cannot be killed — only knocked down for 45 s.',
   }),
 };
 

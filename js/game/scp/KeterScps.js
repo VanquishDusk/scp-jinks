@@ -495,7 +495,7 @@ export class Scp106 extends ScpBase {
 // ===========================================================================
 // SCP-682
 // ===========================================================================
-const MAX_HP = 2400;
+const MAX_HP = 1500;
 
 export class Scp682 extends ScpBase {
   constructor(game, chamber) {
@@ -560,7 +560,7 @@ export class Scp682 extends ScpBase {
     if (this.hp <= 0) {
       this.hp = 0;
       this.state = 'down';
-      this.downT = 40;
+      this.downT = 45;
       this.game.ui.toast('SCP-682 COLLAPSES. IT WILL NOT STAY DOWN FOR LONG.', false);
     }
   }
@@ -593,20 +593,20 @@ export class Scp682 extends ScpBase {
       }
     } else if (this.state === 'rampage') {
       this.body.position.y = 0;
-      this.hp = Math.min(MAX_HP, this.hp + 12 * dt);
+      this.hp = Math.min(MAX_HP, this.hp + 6 * dt);
       const near = this.nearestPerson(90);
       if (near) {
         const v = near.v;
-        // Crush anyone in the way.
-        for (const n of g.npcs.values()) if (n.alive && n !== v && flat(n.pos, this.pos) < 1.2) n.damage(999, this);
+        // Trample anyone in the way.
+        for (const n of g.npcs.values()) if (n.alive && n !== v && flat(n.pos, this.pos) < 1.0) n.damage(40 * dt, this);
         if (near.d < 2.0 && this.biteT <= 0) {
-          this.biteT = 1.1;
+          this.biteT = 1.5;
           if (v === g.player) {
             v.damage(45, 'scp682');
             g.player.shake = 0.08;
-          } else v.damage(999, this);
+          } else v.damage(75, this);
         } else if (near.d >= 1.6) {
-          this.moveToward(dt, v.pos.x, v.pos.z, 4.0, { repath: 0.5, tearDoors: true, turn: 0.15 });
+          this.moveToward(dt, v.pos.x, v.pos.z, 3.3, { repath: 0.5, tearDoors: true, turn: 0.15 });
           moving = true;
         }
       }

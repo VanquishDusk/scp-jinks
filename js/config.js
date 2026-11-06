@@ -5,6 +5,18 @@ export const GAME_SUBTITLE = 'Foundation Facility Simulation';
 export const SITE_NAME = 'SITE-██';
 export const VERSION = '0.6.0';
 
+/**
+ * Economy tuning. Task rewards are multiplied by `reward` and failure
+ * penalties by `penalty`; a shift bonus scaled by final Standing is paid when
+ * a shift ends well.
+ */
+export const ECONOMY = {
+  reward: 1.5,
+  penalty: 0.75,
+  shiftBonusBase: 100,
+  shiftBonusPerStanding: 2,
+};
+
 /** Size of one voxel in meters. All world-space values are in meters. */
 export const VOXEL = 0.5;
 

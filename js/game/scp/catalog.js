@@ -15,7 +15,7 @@ export const CATALOG = {
     nick: 'Panacea',
     cls: 'Safe',
     price: 600,
-    income: 6,
+    income: 10,
     decay: 0,
     risk: 0,
     desc: 'A container of red pills that cure any disease or injury. Low yield, zero risk.',
@@ -27,7 +27,7 @@ export const CATALOG = {
     nick: 'The Tickle Monster',
     cls: 'Safe',
     price: 1400,
-    income: 14,
+    income: 24,
     decay: 3,
     risk: 1,
     desc: 'A friendly orange gelatinous mass. If it gets out, it wanders the halls and heals anyone it hugs.',
@@ -39,7 +39,7 @@ export const CATALOG = {
     nick: 'The Sculpture',
     cls: 'Euclid',
     price: 3500,
-    income: 48,
+    income: 75,
     decay: 7,
     risk: 5,
     desc: 'A concrete statue. It cannot move while it is being looked at. The moment nobody is watching it — you blink, you look away — it closes the distance and snaps your neck. It cannot pass through walls or doors.',
@@ -53,7 +53,7 @@ CATALOG['096'] = {
   nick: 'The Shy Guy',
   cls: 'Euclid',
   price: 6500,
-  income: 85,
+  income: 130,
   decay: 5,
   risk: 6,
   desc: 'A pale, emaciated humanoid that sits curled up, face hidden. Anyone who sees its face — in person, on a camera feed or in a photograph — is hunted down and killed. Nothing stops it. Afterwards it sits down again, wherever it is.',
@@ -63,6 +63,6 @@ CATALOG['096'] = {
 
 export const CATALOG_ORDER = ['500', '999', '173', '096'];
 
-export const BLACK_MARKET_MARKUP = 1.25;
+export const BLACK_MARKET_MARKUP = 1.15;
 
 export const CLASS_COLOR = { Safe: '#7fbf7f', Euclid: '#e2b84a', Keter: '#ff5a40' };

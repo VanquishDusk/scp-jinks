@@ -130,6 +130,7 @@ export class SecurityDirector extends Director {
 
   endOfShift() {
     this.game.say(this.chief.name, 'Shift is over, officer. Hand over to the night crew.', 'radio');
+    this.payShiftBonus('Shift pay');
     this.finish('complete');
   }
 

@@ -5,6 +5,8 @@
 //   - Standing (Compliance / Performance) rises and falls with what you do.
 //     At zero the shift is lost. Death, deadlines and guards end runs fast.
 
+import { ECONOMY } from '../../config.js';
+
 const ABORT = Symbol('script-abort');
 
 export function shuffle(arr, rnd = Math.random) {
@@ -222,6 +224,12 @@ export class Director {
   tick() {}
 
   endOfShift() {}
+
+  /** End-of-shift pay: a base amount plus more for good Standing. */
+  payShiftBonus(label) {
+    const amount = Math.round(ECONOMY.shiftBonusBase + this.standing * ECONOMY.shiftBonusPerStanding);
+    this.tasks.award(amount, label);
+  }
 
   finish(result) {
     if (this.finished) return;

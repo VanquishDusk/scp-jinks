@@ -6,6 +6,7 @@
 // through gameplay — reaching places, using terminals, carrying items,
 // escorting people, surviving hazards. Tasks can carry deadlines, and missing
 // them costs Credits and Standing.
+import { ECONOMY } from '../config.js';
 
 const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -19,7 +20,7 @@ export class Step {
     this.o = o;
     this.text = o.text;
     this.detail = o.detail || '';
-    this.reward = o.reward || 0;
+    this.reward = Math.round((o.reward || 0) * ECONOMY.reward);
     this.marker = o.marker ?? true; // true | false | 'near'
     this.timeLimit = o.timeLimit || 0; // seconds; step fails when exceeded
     this.started = false;
@@ -252,8 +253,8 @@ export class Task {
       giver: o.giver || '',
       kind: o.kind || 'task',
       steps: o.steps,
-      reward: o.reward || 0,
-      penalty: o.penalty || 0,
+      reward: Math.round((o.reward || 0) * ECONOMY.reward),
+      penalty: Math.round((o.penalty || 0) * ECONOMY.penalty),
       deadline: o.deadline ?? null,
       standing: o.standing || [0, 0],
       grants: o.grants || null,

@@ -310,6 +310,7 @@ export class ClassDDirector extends Director {
   endOfShift() {
     const p = this.game.player.pos;
     const inCell = Math.hypot(p.x - this.cell.x * 0.5, p.z - this.cell.z * 0.5) < 3.2;
+    if (inCell) this.payShiftBonus('Survival stipend');
     this.finish(inCell ? 'survived' : 'lightsout');
   }
 
@@ -861,7 +862,7 @@ export class ClassDDirector extends Director {
         },
         onEnd: (gm, ok) => {
           gm.testFloor.stop();
-          if (ok && gm.player.damageTaken === hpStart) this.tasks.award(60, 'Flawless test');
+          if (ok && gm.player.damageTaken === hpStart) this.tasks.award(100, 'Flawless test');
         },
       }),
       this.exitStep(ctx),

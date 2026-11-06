@@ -136,15 +136,18 @@ six chambers.
 
 | SCP     | Class  | Price   | Research grants | Breach risk | Notes |
 |---------|--------|---------|-----------------|-------------|-------|
-| SCP-500 | Safe   | 600 CR  | 6 CR/min        | none        | The chamber terminal dispenses one full-heal pill per shift |
-| SCP-999 | Safe   | 1400 CR | 14 CR/min       | low         | Loose, it wanders the halls and heals anyone it hugs. The grid still fails open |
-| SCP-173 | Euclid | 3500 CR | 48 CR/min       | very high   | Lethal. Containment integrity decays fast |
-| SCP-096 | Euclid | 6500 CR | 85 CR/min       | extreme     | Lethal. Breaks out tearing doors apart. Hardest to recontain |
+| SCP-500 | Safe   | 600 CR  | 10 CR/min       | none        | The chamber terminal dispenses one full-heal pill per shift |
+| SCP-999 | Safe   | 1400 CR | 24 CR/min       | low         | Loose, it wanders the halls and heals anyone it hugs. The grid still fails open |
+| SCP-173 | Euclid | 3500 CR | 75 CR/min       | very high   | Lethal. Containment integrity decays fast |
+| SCP-096 | Euclid | 6500 CR | 130 CR/min      | extreme     | Lethal. Breaks out tearing doors apart. Hardest to recontain |
 
+- **Earning:** task rewards pay 1.5× their base value (failure penalties are 0.75×). Ending a
+  shift well pays a bonus of 100 CR + 2 CR per point of Standing: **shift pay** for Security,
+  a **survival stipend** for Class-D back in their cell at lights out.
 - **Buying:**
   - **Security** buys from the **Procurement terminal** on the south wall of the Security Office.
   - **Class-D** use the **jury-rigged black-market terminal** in the D-Block washroom, which
-    charges a 25% markup. If a guard sees you on it, you are busted: you lose Compliance and the
+    charges a 15% markup. If a guard sees you on it, you are busted: you lose Compliance and the
     guard chases you. The world keeps running while the menu is open.
 - **Delivery:** a bought SCP is transported into a free chamber partway through the shift.
 - **Money vs risk:** contained SCPs pay Security research grants every minute. Each SCP's

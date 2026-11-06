@@ -115,6 +115,9 @@ export class Scp173 {
     this.pos.set(c.center[0] * VOXEL, VOXEL, c.center[1] * VOXEL);
     this.yaw = (c.yaw * Math.PI) / 180;
     this.contained = true;
+    this.path = null;
+    // Still in its cage for a little while: everyone gets time to leave.
+    this.cooldown = 12;
     this.place();
   }
 
@@ -136,11 +139,20 @@ export class Scp173 {
     return this.game.nav.lineClear(ax, az, bx, bz) && !this.game.doorBlocksLine(ax, az, bx, bz);
   }
 
+  /** Is a point inside this SCP's containment chamber? */
+  inChamber(x, z) {
+    const g = this.game;
+    const room = g.builder.rooms[g.world.roomAtWorld(x, VOXEL + 0.3, z)];
+    return !!room && room.zone === this.chamber.zone;
+  }
+
   victims() {
     const g = this.game;
     const list = [];
     if (!g.player.dead) list.push(g.player);
     for (const n of g.npcs.values()) if (n.alive) list.push(n);
+    // In its chamber it can only reach people who come inside.
+    if (this.contained) return list.filter((v) => this.inChamber(v.pos.x, v.pos.z));
     return list;
   }
 

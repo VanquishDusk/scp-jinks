@@ -55,6 +55,20 @@ export class SecurityDirector extends Director {
     };
 
     const g = this.game;
+    // Armory lockers in the Security Office: top up ammunition.
+    const lockers = g.addTrigger(new Trigger({ id: 'armory', x: 30.6, y: 1.3, z: 22.65, half: [1.6, 1.0, 0.35] }));
+    lockers.restockAt = -99;
+    lockers.action = {
+      text: 'Restock ammunition from the armory',
+      hold: 1.2,
+      use: (gm) => {
+        if (gm.time - lockers.restockAt < 45) return { ok: false, message: `ARMORY LOCKED — ${Math.ceil(45 - (gm.time - lockers.restockAt))} S` };
+        lockers.restockAt = gm.time;
+        gm.combat.restock();
+        gm.player.heal(15);
+        return { ok: true, message: 'AMMUNITION RESTOCKED' };
+      },
+    };
     const proc = g.terminals.get('procurement');
     proc.setStatus('active', 'CATALOG ONLINE');
     proc.action = { text: 'Open the SCP procurement catalog', use: (gm) => gm.openShop('security') };
@@ -103,6 +117,10 @@ export class SecurityDirector extends Director {
       this.game.say(who, text, 'radio');
       this.chatterAt = this.clock + rand(80, 150);
     }
+    if (this.playerHostile) {
+      const engaged = this.guards().some((gd) => gd.ai && gd.ai.job === 'engage');
+      this.game.ui.setWanted(engaged ? 'UNDER FIRE' : 'HOSTILE');
+    }
     // Rioters lash out at officers who get too close.
     const p = this.game.player;
     for (const n of this.game.npcs.values()) {
@@ -129,22 +147,75 @@ export class SecurityDirector extends Director {
         this.shelterResearchers();
         this.dispatchGuards(this.eventSite(data));
       }
+    } else if (name === 'recontained' && data.byTeam) {
+      this.assistTag('recontain', 'Containment team secured it');
     } else if (name === 'recontained' && !data.byPlayer) {
       this.failTag('recontain', 'MTF had to recontain it for you');
     } else if (name === 'grid-down' && !this.tasks.has('grid')) {
       this.after(6, () => this.gridTask());
+    } else if (name === 'contained' && data.byTeam) {
+      this.assistTag('contain', 'Security re-engaged the locks');
     } else if (name === 'contained' && !data.byPlayer) {
       this.failTag('contain', 'MTF had to re-establish containment');
     } else if (name === 'grid-restored' && !data.byPlayer) {
       this.failTag('grid', 'Maintenance rebooted the grid without you');
     } else if (name === 'power-restored' && !data.byPlayer) {
       this.failTag('power', 'Maintenance restored power without you');
+    } else if (name === 'riot-ended' && data.byTeam) {
+      this.assistTag('riot', 'Officers put down the riot');
     } else if (name === 'riot-ended' && !data.byPlayer) {
       this.failTag('riot', 'The response team had to quell the riot');
     } else if (name === 'end') {
       this.tasks.cancel((t) => t.tag === 'evac', 'Evacuation complete');
       this.releaseGuards();
     }
+  }
+
+  /**
+   * Fellow officers handled it. Share of the reward if you were there helping,
+   * otherwise the job just closes — no penalty, no credit.
+   */
+  assistTag(tag, why) {
+    const g = this.game;
+    for (const t of this.tasks.active.slice()) {
+      if (t.tag !== tag) continue;
+      const helped = g.time - (this.lastAssistAt || -99) < 25;
+      this.tasks.cancel((x) => x === t, why);
+      if (helped) {
+        const share = Math.round(t.reward * 0.5);
+        this.tasks.award(share, `Assist: ${t.title}`);
+        this.changeStanding(Math.ceil(t.standing[0] / 2), 'Team effort');
+      }
+    }
+  }
+
+  /** You were fighting / watching alongside the team (counts as an assist). */
+  noteAssist() {
+    this.lastAssistAt = this.game.time;
+  }
+
+  // ---- Use of force -------------------------------------------------------------
+  onAttack(attacker, npc, dmg, killed) {
+    const g = this.game;
+    if (attacker !== g.player || this.finished) return;
+    const now = g.time;
+    if (npc.kind === 'classd') {
+      if (npc.rioting) {
+        if (killed) this.changeStanding(-12, 'Lethal force on a rioter');
+        else if (!this.forceWarnAt || now - this.forceWarnAt > 12) {
+          this.forceWarnAt = now;
+          if (g.combat.def.kind === 'ranged') this.changeStanding(-4, 'Excessive force — use your baton');
+        }
+        return;
+      }
+      this.changeStanding(killed ? -25 : -8, killed ? 'You killed an unarmed Class-D' : 'Assaulting a compliant Class-D');
+      return;
+    }
+    // Staff: scientists, officers, MTF.
+    this.friendlyHits = (this.friendlyHits || 0) + 1;
+    if (killed) this.friendlyKills = (this.friendlyKills || 0) + 1;
+    this.changeStanding(killed ? -35 : -10, killed ? `You killed ${npc.name}` : 'Friendly fire');
+    if (this.friendlyKills >= 2 || this.friendlyHits >= 5 || (killed && npc.kind === 'guard')) this.makeHostile(npc.alive ? npc : this.guards()[0], 'rogue');
   }
 
   failTag(tag, why) {
@@ -187,6 +258,7 @@ export class SecurityDirector extends Director {
                     hold: 4,
                     use: () => {
                       step.left.delete(t);
+                      t.engaged = true;
                       t.action = null;
                       t.setStatus('done', 'LOCK ENGAGED');
                       return { ok: true, message: 'LOCK ENGAGED' };
@@ -194,7 +266,10 @@ export class SecurityDirector extends Director {
                   };
                 }
               },
-              update: (gm, dt, step) => step.left.size === 0,
+              update: (gm, dt, step) => {
+                for (const t of step.left) if (t.engaged) step.left.delete(t);
+                return step.left.size === 0;
+              },
               progress: (gm, step) => `${2 - step.left.size}/2 locks`,
               target: (gm, step) => {
                 let best = null;

@@ -109,6 +109,25 @@ export class Director {
 
   onStandingZero() {}
 
+  // ---- Combat consequences ---------------------------------------------------------
+  /** Someone hit an NPC (player attacks are judged by the role directors). */
+  onAttack() {}
+
+  /** Security now treats the player as an armed threat: shoot on sight. */
+  makeHostile(by, reason) {
+    if (this.playerHostile || this.finished) return;
+    this.playerHostile = true;
+    const g = this.game;
+    const classd = g.role.id === 'classd';
+    if (by && by.name) g.say(by.name, classd ? (reason === 'armed' ? 'D-class has a gun! Weapons free!' : 'D-class is attacking staff! Weapons free!') : 'Officer down — it was one of ours! Take them out!');
+    g.ui.banner(classd ? 'HOSTILE' : 'ROGUE OFFICER', 'SECURITY HAS ORDERS TO SHOOT ON SIGHT', 'red');
+    this.after(2.5, () => g.say('SITE INTERCOM', `${g.designation} is to be considered armed and hostile. Lethal force authorized.`, 'pa', 6));
+    for (const gd of this.guards()) {
+      gd.pursuing = false;
+      gd.followSpeed = null;
+    }
+  }
+
   // ---- Task pool ----------------------------------------------------------------
   /**
    * templates: { key: { weight, cooldown, can(): bool, make(): Task } }
@@ -290,7 +309,7 @@ export class Director {
       if (gd.id === 'chief' || gd.pursuing) continue;
       if (Math.random() < 0.6) {
         gd.busy = true;
-        const p = this.game.nav.randomPointNear(point.x, point.z, 5) || [point.x, point.z];
+        const p = this.game.pointNear(point.x, point.z, 5);
         gd.goTo(p[0], p[1], { speed: 3.2 });
       }
     }

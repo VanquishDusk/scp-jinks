@@ -358,6 +358,37 @@ h2 {
 .segments.exhausted i { background: #d8644a; }
 .segments.exhausted i.off { background: rgba(255, 255, 255, 0.08); }
 
+/* Weapon readout (bottom right) and hit marker. */
+.weapon {
+  position: absolute;
+  right: 18px;
+  bottom: 40px;
+  text-align: right;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 #000;
+}
+.weapon-name { font-size: 19px; color: var(--dim); letter-spacing: 0.08em; }
+.weapon-ammo { font-size: 34px; color: var(--text); line-height: 1; }
+.weapon-ammo.empty { color: #ff6a50; }
+.weapon-reload { margin-top: 4px; margin-left: auto; width: 120px; height: 6px; border: 1px solid rgba(255, 255, 255, 0.55); background: rgba(0, 0, 0, 0.5); }
+#weapon-reload-fill { height: 100%; width: 0; background: #e6e6dc; }
+.hitmark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  opacity: 0;
+  background:
+    linear-gradient(45deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%);
+  -webkit-mask: radial-gradient(circle, transparent 4px, #000 5px);
+  mask: radial-gradient(circle, transparent 4px, #000 5px);
+  filter: drop-shadow(1px 1px 0 #000);
+}
+.hitmark.on { opacity: 1; }
+
 .fps { position: absolute; right: 14px; bottom: 10px; font-size: 20px; color: var(--ok); text-shadow: 2px 2px 0 #000; }
 
 .hint {

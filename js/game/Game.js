@@ -20,6 +20,8 @@ import { TaskManager } from './objectives.js';
 import { ClassDDirector } from './directors/ClassDDirector.js';
 import { SecurityDirector } from './directors/SecurityDirector.js';
 import { ScpManager } from './scp/ScpManager.js';
+import { Combat } from './combat/Combat.js';
+import { GuardAI } from './GuardAI.js';
 
 const FOG_COLOR = 0x07080a;
 const INTERACT_RANGE = 2.4;
@@ -160,6 +162,8 @@ export class Game {
     this.shots = f.shots;
     this.events = new FacilityEvents(this);
     this.tasks = new TaskManager(this);
+    this.combat = new Combat(this);
+    this.guardAI = new GuardAI(this);
     progress(1, 'Facility online');
     await nextFrame();
   }
@@ -207,6 +211,16 @@ export class Game {
     const p = this.builder.points[id];
     if (!p) throw new Error(`Unknown point ${id}`);
     return { ...p, x: p.x * VOXEL, z: p.z * VOXEL };
+  }
+
+  /** A random walkable point near (x, z) in the same room (never through a wall). */
+  pointNear(x, z, r) {
+    const room = this.world.roomAtWorld(x, VOXEL + 0.3, z);
+    for (let i = 0; i < 8; i++) {
+      const p = this.nav.randomPointNear(x, z, r);
+      if (p && this.world.roomAtWorld(p[0], VOXEL + 0.3, p[1]) === room) return p;
+    }
+    return this.nav.walkableAtWorld(x, z) ? [x, z] : this.nav.randomPointNear(x, z, 1) || [x, z];
   }
 
   get clearance() {
@@ -352,6 +366,8 @@ export class Game {
     if (this.tasks) this.tasks.reset();
     if (this.events) this.events.reset();
     if (this.scps) this.scps.reset(true);
+    if (this.combat) this.combat.reset(null);
+    if (this.guardAI) this.guardAI.reset();
   }
 
   // ---------------------------------------------------------------------------
@@ -373,8 +389,30 @@ export class Game {
     this.ended = null;
     this.ui.setItem(null);
     this.ui.setCredits(this.profile.credits);
+    this.combat.reset(this.role);
     this.director = roleId === 'classd' ? new ClassDDirector(this) : new SecurityDirector(this);
     this.director.setup();
+    this.spawnPipes();
+  }
+
+  /** A couple of loose lead pipes lie around the facility each shift. */
+  spawnPipes() {
+    const spots = ['spill-washroom', 'maint-shaft', 'patrol-storage', 'spill-westcorr', 'spill-commons', 'crate-storage', 'w-commons-7'];
+    const list = spots.filter((id) => this.builder.points[id]).sort(() => Math.random() - 0.5).slice(0, 2);
+    for (const id of list) {
+      const p = this.point(id);
+      const at = this.nav.randomPointNear(p.x, p.z, 1.5) || [p.x, p.z];
+      this.addPickup({
+        id: `pipe-${id}`,
+        kind: 'weapon',
+        weapon: 'pipe',
+        x: at[0],
+        y: VOXEL + 0.05,
+        z: at[1],
+        name: 'Lead Pipe',
+        onPickup: (gm) => gm.combat.give('pipe'),
+      });
+    }
   }
 
   /** Called once the player actually takes control. */
@@ -419,8 +457,12 @@ export class Game {
     return d;
   }
 
-  onNpcDeath(npc) {
+  onNpcDeath(npc, attacker = null) {
     if (this.ended) return;
+    if (attacker === this.player) {
+      this.ui.toast(`${npc.name.toUpperCase()} IS DOWN`, true);
+      return; // the directors judge the player's use of force (onAttack)
+    }
     if (npc.kind === 'scientist' || npc.kind === 'guard') {
       this.ui.toast(`${npc.name.toUpperCase()} IS DOWN`, true);
       if (this.role.id === 'security' && npc.kind === 'scientist' && this.director) this.director.changeStanding(-8, 'Personnel casualty on your watch');
@@ -439,6 +481,7 @@ export class Game {
     p.updateBlink(dt, !p.dead && input.blinkHeld());
 
     if (this.director) this.director.update(dt);
+    if (!this.ended) this.guardAI.update(dt);
     for (const n of this.npcs.values()) n.update(dt);
     if (!this.ended) this.scps.update(dt);
 
@@ -466,6 +509,7 @@ export class Game {
       this.updateInteraction(input, dt);
       this.updateZone();
     }
+    this.combat.update(dt, this.ended ? null : input);
     if (p.dead && !this.ended) this.endShift('terminated');
   }
 

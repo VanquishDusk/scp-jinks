@@ -32,6 +32,11 @@ export class UI {
       briefingGo: $('briefing-go'),
       hud: $('hud'),
       crosshair: $('crosshair'),
+      hitmark: $('hitmark'),
+      weaponName: $('weapon-name'),
+      weaponAmmo: $('weapon-ammo'),
+      weaponReload: $('weapon-reload'),
+      weaponReloadFill: $('weapon-reload-fill'),
       prompt: $('prompt'),
       promptKey: $('prompt-key'),
       promptText: $('prompt-text'),
@@ -572,6 +577,20 @@ export class UI {
     }
   }
 
+  /** Weapon readout: { name, ammo, reloading (0..1), hit }. */
+  setWeapon(w) {
+    const key = `${w.name}|${w.ammo}`;
+    if (key !== this.weaponKey) {
+      this.weaponKey = key;
+      this.el.weaponName.textContent = w.name;
+      this.el.weaponAmmo.textContent = w.ammo;
+      this.el.weaponAmmo.classList.toggle('empty', /^0 /.test(w.ammo));
+    }
+    this.el.weaponReload.classList.toggle('hidden', !w.reloading);
+    if (w.reloading) this.el.weaponReloadFill.style.width = `${Math.round(w.reloading * 100)}%`;
+    this.el.hitmark.classList.toggle('on', !!w.hit);
+  }
+
   setItem(text) {
     this.el.itemHeld.classList.toggle('hidden', !text);
     this.el.itemHeld.textContent = text || '';
@@ -737,8 +756,9 @@ export class UI {
     const el = this.el.wanted;
     el.classList.toggle('hidden', !state);
     if (!state) return;
-    el.textContent = state === 'PURSUED' ? '! PURSUED — LOSE THEM !' : 'OUT OF BOUNDS';
-    el.classList.toggle('pursued', state === 'PURSUED');
+    const text = { PURSUED: '! PURSUED — LOSE THEM !', 'UNDER FIRE': '! UNDER FIRE — GET OUT OF SIGHT !', HOSTILE: 'HOSTILE — SHOOT ON SIGHT' };
+    el.textContent = text[state] || 'OUT OF BOUNDS';
+    el.classList.toggle('pursued', state !== 'OUT OF BOUNDS');
   }
 
   /** Slide-in notification card. type sets the color scheme. */
@@ -842,7 +862,7 @@ export class UI {
     html += row('Personnel', `${s.role.name} · ${s.designation}`);
     html += row('Time on shift', `${mins}:${secs}`);
     if (s.standingLabel) html += row(`Final ${s.standingLabel.toLowerCase()}`, Math.round(s.standing), s.standing > 25 ? 'ok' : 'bad');
-    const causes = { scp096: 'Torn apart by SCP-096', scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters' };
+    const causes = { scp096: 'Torn apart by SCP-096', scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters', shot: 'Shot by Foundation security', beaten: 'Beaten to death' };
     if (s.cause) html += row('Cause of death', causes[s.cause] || 'Unknown', 'bad');
     html += row('Tasks completed', s.history.filter((h) => h.status === 'complete').length, 'ok');
     if (s.failed) html += row('Tasks failed or missed', s.failed, 'bad');

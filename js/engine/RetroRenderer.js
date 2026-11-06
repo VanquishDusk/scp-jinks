@@ -171,9 +171,16 @@ export class RetroRenderer {
     }
   }
 
-  render(scene, camera) {
+  /** Draw the world, then (optionally) an overlay scene such as the weapon view on top. */
+  render(scene, camera, overlay = null) {
     this.renderer.setRenderTarget(this.target);
     this.renderer.render(scene, camera);
+    if (overlay) {
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(overlay, camera);
+      this.renderer.autoClear = true;
+    }
     this.renderer.setRenderTarget(null);
     this.renderer.render(this.postScene, this.postCamera);
   }

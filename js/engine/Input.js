@@ -25,6 +25,7 @@ export class Input {
     this.mouseDY = 0;
     this.mouseClicked = false;
     this.mouseHeld = false;
+    this.wheel = 0;
     this.locked = false;
     this.lockFailed = false;
     this.lockLostAt = 0;
@@ -69,6 +70,16 @@ export class Input {
       if (e.button === 0) this.mouseHeld = false;
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener(
+      'wheel',
+      (e) => {
+        if (this.locked) {
+          e.preventDefault();
+          this.wheel += Math.sign(e.deltaY);
+        }
+      },
+      { passive: false },
+    );
 
     document.addEventListener('pointerlockchange', () => {
       const was = this.locked;
@@ -139,6 +150,7 @@ export class Input {
     this.mouseClicked = false;
     this.mouseDX = 0;
     this.mouseDY = 0;
+    this.wheel = 0;
     this.padPrev = this.padButtons;
   }
 
@@ -148,6 +160,7 @@ export class Input {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.mouseClicked = false;
+    this.wheel = 0;
   }
 
   key(code) {
@@ -228,9 +241,7 @@ export class Input {
     return (
       this.keyPressed('KeyE') ||
       this.keyPressed('KeyF') ||
-      (this.locked && this.mouseClicked) ||
-      this.padPressed(PAD.X) ||
-      this.padPressed(PAD.RB)
+      this.padPressed(PAD.X)
     );
   }
 
@@ -239,10 +250,36 @@ export class Input {
     return (
       this.key('KeyE') ||
       this.key('KeyF') ||
-      (this.locked && this.mouseHeld) ||
-      this.padDown(PAD.X) ||
-      this.padDown(PAD.RB)
+      this.padDown(PAD.X)
     );
+  }
+
+  // ---- Combat ------------------------------------------------------------
+
+  attackPressed() {
+    return (this.locked && this.mouseClicked) || this.padPressed(PAD.RT);
+  }
+
+  attackHeld() {
+    return (this.locked && this.mouseHeld) || this.padDown(PAD.RT);
+  }
+
+  reloadPressed() {
+    return this.keyPressed('KeyR') || this.padPressed(PAD.RB);
+  }
+
+  /** Number key 1-4 → weapon slot, or 0. */
+  weaponSlot() {
+    for (let i = 1; i <= 4; i++) if (this.keyPressed(`Digit${i}`)) return i;
+    return 0;
+  }
+
+  /** Mouse wheel / D-pad left-right → -1, 0 or 1. */
+  weaponCycle() {
+    if (this.wheel) return Math.sign(this.wheel);
+    if (this.padPressed(PAD.RIGHT)) return 1;
+    if (this.padPressed(PAD.LEFT)) return -1;
+    return 0;
   }
 
   /** Blink on purpose (Q / left trigger). Holding keeps the eyes shut. */

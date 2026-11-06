@@ -12,6 +12,8 @@ import * as THREE from 'three';
 import { VOXEL } from '../config.js';
 import { drawPixelText } from '../world/pixelFont.js';
 import { pixelTexture } from '../world/textures.js';
+import { boxGeometry } from './scp/voxelModel.js';
+import { weaponBoxes } from './combat/weapons.js';
 
 const FACE_ROT = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 };
 const FACE_N = { s: [0, 0, 1], n: [0, 0, -1], e: [1, 0, 0], w: [-1, 0, 0] };
@@ -149,7 +151,7 @@ function titleCase(s) {
 
 /** A small item that can be picked up. kind: keycard | document | specimen */
 export class Pickup extends Interactable {
-  constructor({ id, kind, x, y, z, name, color = 0x40ff70, onPickup }, world) {
+  constructor({ id, kind, x, y, z, name, color = 0x40ff70, onPickup, weapon }, world) {
     super({ id, origin: new THREE.Vector3(x, y, z), half: [0.22, 0.2, 0.22] });
     this.kind = kind;
     this.name = name;
@@ -177,6 +179,16 @@ export class Pickup extends Interactable {
       g.add(band);
       mesh = g;
       this.half = [0.3, 0.28, 0.25];
+    } else if (kind === 'weapon') {
+      const geo = boxGeometry(weaponBoxes(weapon), 1 / 16);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, color: light.clone().multiplyScalar(1.25) }));
+      if (weapon === 'pipe' || weapon === 'baton') m.rotation.set(Math.PI / 2, 0, Math.random() * 6);
+      else m.rotation.set(0, Math.random() * 6, Math.PI / 2);
+      const g = new THREE.Group();
+      g.add(m);
+      mesh = g;
+      this.half = [0.4, 0.15, 0.4];
+      this.still = true;
     } else if (kind === 'document') {
       const g = new THREE.Group();
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.03, 0.22), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xc8a868).multiply(light) })));
@@ -209,8 +221,8 @@ export class Pickup extends Interactable {
     this.taken = true;
     this.enabled = false;
     this.object.visible = false;
-    if (this.onPickup) this.onPickup(game, this);
-    return { ok: true, message: `PICKED UP: ${this.name.toUpperCase()}` };
+    const msg = this.onPickup ? this.onPickup(game, this) : null;
+    return { ok: true, message: typeof msg === 'string' ? msg : `PICKED UP: ${this.name.toUpperCase()}` };
   }
 
   /** Put the item back into the world (e.g. on a receptacle). */

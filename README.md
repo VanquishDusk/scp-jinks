@@ -4,11 +4,12 @@ A single-player, retro voxel **SCP Foundation facility simulation** that runs en
 browser. It uses a low-resolution, dithered, PS2-era look with chunky voxel architecture, baked
 lighting and pixel-art textures that are generated in code.
 
-> **v0.5.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
+> **v0.6.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
 > Security Guard), plus an **SCP tycoon layer**. Buy SCPs, house them in the Heavy Containment
 > Wing and earn research grants, at the risk of breaches. SCP-173 (line of sight and
 > blinking) and SCP-096 (seeing its face, even on a camera feed or in a photo, means death)
-> are in. The game is silent by design (no audio).
+> are in. **Combat** adds melee and ranged weapons, and the guards now know how to contain
+> SCPs as a team. The game is silent by design (no audio).
 
 ## Play
 
@@ -49,7 +50,10 @@ Then open <http://localhost:8000>.
 | Sprint              | `Shift`                          | `LB` / `L3`                |
 | Crouch              | `C` (hold or toggle in settings) | `B`                        |
 | Jump                | `Space`                          | `A`                        |
-| Interact            | `E`, `F` or left click           | `X` / `RB`                 |
+| Interact            | `E` / `F`                        | `X`                        |
+| Attack / fire       | Left click                       | `RT`                       |
+| Reload              | `R`                              | `RB`                       |
+| Switch weapon       | `1`–`4`, mouse wheel             | D-pad left/right           |
 | Terminals & repairs | Hold `E`                         | Hold `X`                   |
 | Switch pager task   | `Tab`                            | `Y`                        |
 | Blink (hold = shut) | `Q`                              | `LT`                       |
@@ -187,10 +191,54 @@ six chambers.
 - When a breach event picks SCP-096, a monitor glitch shows its face to someone on site, and it
   goes after them.
 
+## Combat
+
+Both classes can fight, but violence has consequences.
+
+| Weapon     | Kind   | Who has it                                     | Notes                                       |
+|------------|--------|------------------------------------------------|---------------------------------------------|
+| Fists      | Melee  | Class-D                                        | Weak, short stun                            |
+| Lead Pipe  | Melee  | Two lie somewhere in the facility every shift  | Heavy hits                                  |
+| Baton      | Melee  | Security                                       | Two hits send a rioting Class-D to a cell   |
+| Sidearm    | Ranged | Security (12 + 36 rounds), dropped by officers | Semi-automatic                              |
+| Rifle      | Ranged | Dropped by MTF operatives                      | Automatic                                   |
+
+- Walls, glass and closed doors stop bullets. Headshots deal extra damage.
+- **Breach anomalies can be shot down.** SCP-173, SCP-096 and SCP-999 shrug off gunfire.
+- Security restocks ammunition at the **armory lockers** in the Security Office (once every
+  45 seconds).
+- **Class-D:** hitting staff, or being seen with a gun drawn, makes you **hostile**. Officers
+  stop trying to cuff you and shoot on sight. Picking up a gun is fine; drawing it is not.
+- **Security:** shooting compliant Class-D or staff costs Performance. Kill a colleague, or keep
+  hitting them, and you are a **rogue officer**: everyone opens fire. Lethal force on rioters is
+  frowned upon; use the baton.
+
+### How the guards fight and contain
+
+Guards (and the MTF) run their own AI:
+
+- **Anomalies:** they shoot from range, back off when one gets close and hold fire when a
+  colleague is in the line of fire. When the anomalies are down, an officer re-engages the
+  containment locks (Security players get roughly 100 seconds to do it first).
+- **SCP-173:** a watch group walks in with their eyes on the statue, takes turns blinking with
+  a "Blinking!" callout, and never blinks together. A lone officer keeps their eyes open as long
+  as they can and calls for help. Once two people have it covered, one officer cages it.
+- **SCP-096:** officers keep their eyes on the floor near it. Very rarely one glances up, and
+  that can be fatal. Anyone in its charge path dives aside. Once it sits down, an officer bags it
+  from behind.
+- **SCP-999:** an officer walks up and carries it home.
+- **Riots:** after a short delay to gear up, officers move in with batons.
+- **MTF Epsilon-11:** about 40 seconds into a breach (or a loose SCP-173 or SCP-096), a
+  three-man squad with rifles and armour arrives at the lobby elevator.
+
+When the team finishes an emergency before you do, the task closes without a penalty. If you
+were there helping, you get half the reward.
+
 ### Health
 
 Health recovers slowly, and wall-mounted **first aid stations** heal you faster. The test
-chamber floor, anomalies, specimen discharges, resonance pulses and rioters all deal damage.
+chamber floor, anomalies, specimen discharges, resonance pulses, rioters and gunfire all deal
+damage.
 
 ## Project structure
 
@@ -214,6 +262,11 @@ js/
       ClassDDirector.js    Class-D orders, experiments, guard detection/pursuit, escape opportunities
       SecurityDirector.js  Security job pool and emergency responses
     Events.js              Breach, grid failure, power failure, riot; auto-resolution and alarms
+    GuardAI.js             Officer/MTF combat and team containment (173 watch, 096 bag, riots)
+    combat/
+      weapons.js           Weapon stats and voxel models
+      Combat.js            Player weapons, hitscan/melee, NPC fire, tracers/blood/bullet holes
+      Viewmodel.js         First-person hands and weapons (overlay pass)
     NPC.js                 Voxel humanoids: walk, open doors, wander, lead, follow, board, die
     NavGrid.js             Walkability grid, A* pathfinding and path smoothing
     Interactables.js       Terminals, pickups, first aid stations, specimen stands, triggers

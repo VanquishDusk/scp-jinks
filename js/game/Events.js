@@ -97,7 +97,7 @@ export class FacilityEvents {
       const key = opts.origin || (Math.random() < 0.5 ? 'hcz' : 'research');
       ev.origin = key;
       ev.originDef = BREACH_ORIGINS[key];
-      ev.autoAt = rand(200, 280);
+      ev.autoAt = rand(330, 420);
       this.contained = false;
       this.failGrid();
       for (const id of ev.originDef.doors) {
@@ -117,7 +117,11 @@ export class FacilityEvents {
         elevator.name = 'Evacuation Elevator';
         elevator.refreshLed();
       }
-      for (const t of g.terminals.values()) if (ev.originDef.locks.includes(t.id)) t.setStatus('alert', 'LOCK DISENGAGED');
+      for (const t of g.terminals.values()) {
+        if (!ev.originDef.locks.includes(t.id)) continue;
+        t.engaged = false;
+        t.setStatus('alert', 'LOCK DISENGAGED');
+      }
       g.testFloor.stop();
       const p = g.point(ev.originDef.point);
       const n = 3 + Math.floor(Math.random() * 3);
@@ -140,7 +144,7 @@ export class FacilityEvents {
       ev.entity = e;
       ev.label = e.name;
       ev.originDef = { label: e.name, point: null, site: e.chamber.name, zone: e.chamber.zone };
-      ev.autoAt = rand(220, 300);
+      ev.autoAt = rand(380, 460);
       this.scpLoose = true;
       this.failGrid();
       g.ui.banner(`${e.name} CONTAINMENT BREACH`, `${e.chamber.name.toUpperCase()} — CONTAINMENT FAILURE`, 'red');
@@ -216,16 +220,18 @@ export class FacilityEvents {
   }
 
   // ---- Resolution ---------------------------------------------------------
-  secureContainment(byPlayer) {
+  secureContainment(byPlayer, byTeam = false) {
     if (this.contained) return;
     this.contained = true;
     for (const a of this.anomalies) a.dissipate();
     const ev = this.current;
+    // Maintenance gets the grid back up soon after.
+    if (ev) ev.autoAt = Math.min(ev.autoAt, ev.t + rand(70, 110));
     if (ev && ev.originDef) {
       for (const t of this.game.terminals.values()) if (ev.originDef.locks.includes(t.id)) t.setStatus('idle', 'LOCK ENGAGED');
     }
-    this.game.say('SITE INTERCOM', byPlayer ? 'Containment re-established. Remain alert.' : 'Mobile Task Force has re-established containment. Remain alert.', 'pa', 6);
-    this.emit('contained', { byPlayer });
+    this.game.say('SITE INTERCOM', byPlayer ? 'Containment re-established. Remain alert.' : byTeam ? 'Security has re-engaged the containment locks. Remain alert.' : 'Mobile Task Force has re-established containment. Remain alert.', 'pa', 6);
+    this.emit('contained', { byPlayer, byTeam });
     this.checkEnd();
   }
 
@@ -267,24 +273,25 @@ export class FacilityEvents {
   }
 
   /** A loose SCP is back in its chamber. */
-  recontainScp(byPlayer) {
+  recontainScp(byPlayer, byTeam = false) {
     const ev = this.current;
     if (!ev || ev.type !== 'scp' || !this.scpLoose) return;
     this.scpLoose = false;
     this.game.scps.recontain(ev.scp);
-    this.game.say('SITE INTERCOM', byPlayer ? `${ev.label} has been recontained.` : `Mobile Task Force has recontained ${ev.label}.`, 'pa', 6);
-    this.emit('recontained', { byPlayer, scp: ev.scp });
+    ev.autoAt = Math.min(ev.autoAt, ev.t + rand(70, 110));
+    this.game.say('SITE INTERCOM', byPlayer ? `${ev.label} has been recontained.` : byTeam ? `Containment team reports ${ev.label} secured.` : `Mobile Task Force has recontained ${ev.label}.`, 'pa', 6);
+    this.emit('recontained', { byPlayer, byTeam, scp: ev.scp });
     this.checkEnd();
   }
 
-  quellRiot(byPlayer) {
+  quellRiot(byPlayer, byTeam = false) {
     if (!this.rioters.length) return;
     for (const n of this.rioters) if (n.rioting) this.game.director.sendToCell(n);
     this.rioters = [];
     const gate = this.door('d-block-gate');
     if (gate && !this.gridOffline) gate.released = false;
     this.game.say('SITE INTERCOM', byPlayer ? 'D-Block secured. Resume normal operations.' : 'Response team has secured D-Block.', 'pa', 5);
-    this.emit('riot-ended', { byPlayer });
+    this.emit('riot-ended', { byPlayer, byTeam });
     this.checkEnd();
   }
 

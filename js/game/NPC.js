@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { VOXEL } from '../config.js';
+import { weaponBoxes } from './combat/weapons.js';
 
 const PU = 1 / 16;
 const SHADE = [0.82, 0.82, 1.0, 0.6, 0.92, 0.92];
@@ -11,10 +12,12 @@ const SKIN = [0xe0b090, 0xc8946c, 0xa06a48, 0x7a4e34, 0xf0c8a8];
 const HAIR = [0x2a1c14, 0x4a3020, 0x1a1a1a, 0x8a8a84, 0x6a4a28, 0xa88a50];
 
 const KIND = {
-  scientist: { body: 0xdcdedc, lower: 0x3a3c44, arm: 0xdcdedc, shoes: 0x1e1e20, speed: 1.35, clearance: 3 },
-  guard: { body: 0x2a3040, lower: 0x262a34, arm: 0x2a3040, shoes: 0x141416, speed: 1.55, clearance: 3 },
-  classd: { body: 0xd06a20, lower: 0xc46420, arm: 0xd06a20, shoes: 0x2a2a2a, speed: 1.35, clearance: 0 },
+  scientist: { body: 0xdcdedc, lower: 0x3a3c44, arm: 0xdcdedc, shoes: 0x1e1e20, speed: 1.35, clearance: 3, hp: 70 },
+  guard: { body: 0x2a3040, lower: 0x262a34, arm: 0x2a3040, shoes: 0x141416, speed: 1.55, clearance: 3, hp: 100, weapon: 'pistol' },
+  classd: { body: 0xd06a20, lower: 0xc46420, arm: 0xd06a20, shoes: 0x2a2a2a, speed: 1.35, clearance: 0, hp: 80 },
 };
+/** Mobile Task Force operatives are guards in black armour with rifles. */
+const MTF = { body: 0x1a1c20, lower: 0x18191c, arm: 0x1a1c20, shoes: 0x0e0e10, speed: 1.75, clearance: 4, hp: 170, weapon: 'rifle' };
 
 function partGeometry(boxes) {
   const pos = [];
@@ -49,8 +52,8 @@ function partGeometry(boxes) {
   return geo;
 }
 
-function buildModel(kind, rnd) {
-  const k = KIND[kind];
+function buildModel(kind, rnd, mtf = false) {
+  const k = mtf ? MTF : KIND[kind];
   const skin = SKIN[Math.floor(rnd() * SKIN.length)];
   const hair = HAIR[Math.floor(rnd() * HAIR.length)];
   const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
@@ -94,6 +97,14 @@ function buildModel(kind, rnd) {
     head.push([-2.8, 27.6, -2.8, 2.8, 29, 2.8, hair]);
     head.push([-2.8, 24.5, 1.8, 2.8, 29, 2.8, hair]);
     if (rnd() < 0.5) head.push([-2.2, 25.4, -2.8, 2.2, 25.7, -2.7, 0x101010]); // glasses
+  } else if (kind === 'guard' && mtf) {
+    torso.push([-4.9, 14, -2.7, 4.9, 22.6, 2.7, 0x24262a]); // plate carrier
+    torso.push([-3.5, 15, -2.9, 3.5, 18, -2.7, 0x30333a]); // pouches
+    torso.push([-4.8, 20.5, -2.8, -2.2, 22, -2.7, 0xb03030]); // task force patch
+    torso.push([-4.6, 13, -2.4, 4.6, 14, 2.4, 0x101012]); // belt
+    head.push([-3.1, 26.8, -3.1, 3.1, 29.8, 3.1, 0x1c1e22]); // helmet
+    head.push([-2.8, 24.8, -3.3, 2.8, 26.8, -2.6, 0x0c0c0e]); // visor
+    head.push([-2.8, 23, -3, 2.8, 24.8, -2.6, 0x26282c]); // mask
   } else if (kind === 'guard') {
     torso.push([-4.7, 14, -2.5, 4.7, 22, 2.5, 0x1c2026]); // vest
     torso.push([-4.7, 19.4, -2.6, 4.7, 20.3, -2.5, 0x9aa0a8]); // reflective band
@@ -106,13 +117,32 @@ function buildModel(kind, rnd) {
   }
 
   const torsoMesh = new THREE.Mesh(partGeometry(torso), mat);
+  // The head pivots at the neck so people can look down (SCP-096 protocol).
   const headMesh = new THREE.Mesh(partGeometry(head), mat);
+  headMesh.position.y = -23 * PU;
+  const neck = new THREE.Group();
+  neck.position.y = 23 * PU;
+  neck.add(headMesh);
   const legL = leg(-1);
   const legR = leg(1);
   const armL = arm(-1);
   const armR = arm(1);
-  body.add(torsoMesh, headMesh, legL, legR, armL, armR);
-  return { root, body, mat, legL, legR, armL, armR, head: headMesh };
+  body.add(torsoMesh, neck, legL, legR, armL, armR);
+  let weapon = null;
+  let flash = null;
+  if (k.weapon) {
+    // Held in the right hand; barrel follows the arm when it is raised to aim.
+    weapon = new THREE.Group();
+    weapon.position.set(0, -9.5 * PU, -0.5 * PU);
+    weapon.rotation.x = -Math.PI / 2;
+    weapon.add(new THREE.Mesh(partGeometry(weaponBoxes(k.weapon)), mat));
+    flash = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xffe070 }));
+    flash.position.z = k.weapon === 'rifle' ? -14 * PU : -5.5 * PU;
+    flash.visible = false;
+    weapon.add(flash);
+    armR.add(weapon);
+  }
+  return { root, body, mat, legL, legR, armL, armR, head: neck, weapon, flash };
 }
 
 const tmpLight = [0, 0, 0];
@@ -134,7 +164,27 @@ export class NPC {
     this.yaw = ((def.yaw || 0) * Math.PI) / 180;
     this.home = { x: this.pos.x, z: this.pos.z, yaw: this.yaw };
     this.chatter = def.chatter || [];
-    this.hp = 100;
+    this.mtf = !!def.mtf;
+    const stats = this.mtf ? MTF : k;
+    if (this.mtf) {
+      this.clearance = def.clearance ?? MTF.clearance;
+      this.walkSpeed = def.speed ?? MTF.speed;
+    }
+    this.maxHp = def.hp ?? stats.hp;
+    this.hp = this.maxHp;
+    this.weapon = def.weapon ?? stats.weapon ?? null;
+    this.stunT = 0;
+    this.flinchT = 0;
+    this.flashT = 0;
+    this.swingT = 0;
+    this.aiming = false; // arm raised, weapon pointed
+    this.eyesDown = false; // looking at the floor (SCP-096 protocol)
+    this.hostile = false; // turned on the Foundation (shoots/attacks staff)
+    this.lastAttacker = null;
+    this.ai = null; // guard AI state (see GuardAI.js)
+    this.lookAt = null; // { pos } kept in view, even while walking
+    this.holdBlink = false; // fight the urge to blink (someone must watch SCP-173)
+    this.strain = 0;
     this.dead = false;
     this.hidden = false;
     this.collidable = true;
@@ -167,7 +217,7 @@ export class NPC {
     this.blinkT = 2 + rnd() * 5;
     this.announceBlinks = false; // say "Blinking!" before each blink
 
-    this.model = buildModel(this.kind, rnd);
+    this.model = buildModel(this.kind, rnd, this.mtf);
     this.model.root.position.copy(this.pos);
     this.model.root.rotation.y = this.yaw;
     this.updateLight(true);
@@ -309,16 +359,31 @@ export class NPC {
     this.model.root.visible = false;
   }
 
-  damage(amount) {
+  damage(amount, attacker = null) {
     if (this.dead || this.hidden) return;
     this.hp -= amount;
+    if (attacker && typeof attacker === 'object') {
+      this.lastAttacker = attacker;
+      this.attackedAt = this.game.time;
+    }
+    if (amount < 50) this.flinchT = 0.2;
     if (this.hp <= 0) {
       this.hp = 0;
       this.dead = true;
+      this.aiming = false;
       this.stop();
       this.collidable = false;
-      this.game.onNpcDeath(this);
+      if (this.model.flash) this.model.flash.visible = false;
+      if (this.weapon && this.game.combat) {
+        this.game.combat.dropWeapon(this.weapon, this.pos);
+        if (this.model.weapon) this.model.weapon.visible = false;
+      }
+      this.game.onNpcDeath(this, attacker);
     }
+  }
+
+  get hurt() {
+    return this.hp < this.maxHp * 0.999;
   }
 
   // ---- Simulation -------------------------------------------------------
@@ -365,6 +430,10 @@ export class NPC {
     }
     // Everyone blinks — which matters a great deal around SCP-173.
     this.blinkT -= dt;
+    if (this.holdBlink && !this.blinking && this.blinkT < 0.95) {
+      this.blinkT = 0.95;
+      this.strain += dt;
+    } else if (!this.blinking && this.blinkT > 1) this.strain = Math.max(0, this.strain - dt * 0.5);
     if (this.announceBlinks && !this.blinking && !this.warned && this.blinkT < 0.9) {
       this.warned = true;
       this.game.say(this.name, 'Blinking!');
@@ -377,12 +446,18 @@ export class NPC {
       } else {
         this.blinking = true;
         this.blinkT = 0.35;
+        this.strain = 0;
       }
     }
 
     const player = this.game.player;
     this.moving = false;
     this.waiting = false;
+    this.stunT = Math.max(0, this.stunT - dt);
+    this.flinchT = Math.max(0, this.flinchT - dt);
+    this.flashT = Math.max(0, this.flashT - dt);
+    this.swingT = Math.max(0, this.swingT - dt);
+    const stunned = this.stunT > 0;
 
     if (this.mode === 'follow' && this.followTarget) {
       const t = this.followTarget.pos;
@@ -413,7 +488,7 @@ export class NPC {
       }
     }
 
-    if (this.path && this.pathIdx < this.path.length) {
+    if (!stunned && this.path && this.pathIdx < this.path.length) {
       const [tx, tz] = this.path[this.pathIdx];
       const dx = tx - this.pos.x;
       const dz = tz - this.pos.z;
@@ -462,7 +537,9 @@ export class NPC {
           this.pos.x += (dx / dist) * step;
           this.pos.z += (dz / dist) * step;
           this.moving = true;
-          const targetYaw = Math.atan2(-dx, -dz);
+          const targetYaw = this.lookAt
+            ? Math.atan2(-(this.lookAt.pos.x - this.pos.x), -(this.lookAt.pos.z - this.pos.z))
+            : Math.atan2(-dx, -dz);
           this.yaw = turnToward(this.yaw, targetYaw, dt * 8);
         }
         if (this.pathIdx >= this.path.length) {
@@ -476,7 +553,8 @@ export class NPC {
       }
     }
 
-    if (!this.moving && this.faceYaw !== null) this.yaw = turnToward(this.yaw, this.faceYaw, dt * 5);
+    if (!this.moving && this.lookAt) this.yaw = turnToward(this.yaw, Math.atan2(-(this.lookAt.pos.x - this.pos.x), -(this.lookAt.pos.z - this.pos.z)), dt * 8);
+    else if (!this.moving && this.faceYaw !== null) this.yaw = turnToward(this.yaw, this.faceYaw, dt * 5);
     if (this.mode !== 'follow') this.collidable = this.mode !== 'lead';
 
     // Animation.
@@ -489,6 +567,32 @@ export class NPC {
     m.legR.rotation.x = -sw;
     m.armL.rotation.x = -sw * 0.8;
     m.armR.rotation.x = sw * 0.8;
+    m.armL.rotation.z = 0;
+    m.armR.rotation.y = 0;
+    if (this.swingT > 0) {
+      // Overhead strike.
+      const t = 1 - this.swingT / 0.3;
+      m.armR.rotation.x = 2.6 - Math.sin(t * Math.PI) * 1.6;
+    } else if (this.aiming) {
+      m.armR.rotation.x = Math.PI / 2 + (this.flashT > 0 ? 0.12 : 0);
+      if (this.weapon === 'rifle' || this.mtf) {
+        m.armL.rotation.x = Math.PI / 2 - 0.1;
+        m.armL.rotation.z = -0.45;
+      } else {
+        m.armL.rotation.x = Math.PI / 2 - 0.25;
+        m.armL.rotation.z = -0.3;
+      }
+    } else if (this.rioting) {
+      m.armR.rotation.x = 2.4 + Math.sin(this.phase * 2) * 0.4;
+      m.armL.rotation.x = 2.2 + Math.cos(this.phase * 2) * 0.4;
+    }
+    if (this.model.flash) {
+      this.model.flash.visible = this.flashT > 0;
+      this.model.flash.rotation.z = this.phase * 7;
+    }
+    const lookDown = this.eyesDown ? 0.75 : 0;
+    m.head.rotation.x += (-lookDown - m.head.rotation.x) * Math.min(1, dt * 6);
+    m.body.rotation.x = stunned ? 0.18 : this.flinchT > 0 ? 0.1 : 0;
     m.body.position.y = Math.abs(Math.cos(this.phase)) * 0.025 * this.walkAmt;
     m.root.position.copy(this.pos);
     m.root.rotation.y = this.yaw;

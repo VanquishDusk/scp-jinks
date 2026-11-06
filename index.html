@@ -22,6 +22,7 @@
   <!-- ===================== HUD ===================== -->
   <div id="hud" class="hud hidden" aria-live="polite">
     <div id="crosshair" class="crosshair"></div>
+    <div id="hitmark" class="hitmark"></div>
     <div id="prompt" class="prompt hidden">
       <span class="key" id="prompt-key">E</span>
       <span id="prompt-text"></span>
@@ -78,6 +79,11 @@
         </svg>
         <div class="segments" id="stamina"></div>
       </div>
+    </div>
+    <div id="weapon" class="weapon">
+      <div id="weapon-name" class="weapon-name"></div>
+      <div id="weapon-ammo" class="weapon-ammo"></div>
+      <div class="weapon-reload hidden" id="weapon-reload"><div id="weapon-reload-fill"></div></div>
     </div>
     <div id="fps" class="fps hidden"></div>
     <div id="hint" class="hint"></div>
@@ -150,7 +156,10 @@
           <tr><td>Sprint</td><td>Shift</td><td>LB / L3</td></tr>
           <tr><td>Crouch</td><td>C</td><td>B</td></tr>
           <tr><td>Jump</td><td>Space</td><td>A</td></tr>
-          <tr><td>Interact</td><td>E / F / Left click</td><td>X / RB</td></tr>
+          <tr><td>Interact</td><td>E / F</td><td>X</td></tr>
+          <tr><td>Attack / fire</td><td>Left click</td><td>RT</td></tr>
+          <tr><td>Reload</td><td>R</td><td>RB</td></tr>
+          <tr><td>Switch weapon</td><td>1 – 4 / Mouse wheel</td><td>D-pad ← →</td></tr>
           <tr><td>Terminals &amp; repairs</td><td>Hold E</td><td>Hold X</td></tr>
           <tr><td>Switch pager task</td><td>Tab</td><td>Y</td></tr>
           <tr><td>Blink (hold to keep eyes shut)</td><td>Q</td><td>LT</td></tr>

@@ -269,7 +269,7 @@ export class ScpManager {
     const p = g.player;
     if (!p.dead && !p.eyesClosed && e.faces(p.pos.x, p.pos.z) && this.playerSees([face])) out.push(p);
     for (const n of g.npcs.values()) {
-      if (!n.alive || !e.faces(n.pos.x, n.pos.z)) continue;
+      if (!n.alive || n.eyesDown || !e.faces(n.pos.x, n.pos.z)) continue;
       if (this.npcSees(n, face)) out.push(n);
     }
     return out;
@@ -384,13 +384,8 @@ export class ScpManager {
         if (d > 14) continue;
         const los = !g.doorBlocksLine(n.pos.x, n.pos.z, head.x, head.z) && g.world.visible(n.pos.x / VOXEL, 3.3, n.pos.z / VOXEL, head.x / VOXEL, head.y / VOXEL, head.z / VOXEL);
         if (!los) continue;
-        if (n.kind === 'guard') {
-          if (n.mode !== 'idle' || !n.staring) {
-            n.stop();
-            n.staring = true;
-          }
-          n.faceToward(s173.pos.x, s173.pos.z);
-        } else if (!n.fleeing) {
+        if (n.kind === 'guard') continue; // officers follow the watch protocol (GuardAI)
+        if (!n.fleeing) {
           n.fleeing = true;
           const e = g.point('evac');
           n.stop();

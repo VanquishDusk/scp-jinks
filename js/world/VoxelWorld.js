@@ -502,20 +502,34 @@ export class VoxelWorld {
     let tmz = Math.abs(dz) > 1e-9 ? (sz > 0 ? z + 1 - pz : pz - z) * tdz : Infinity;
     const maxT = maxDist / VOXEL;
     let t = 0;
+    // Normal of the face that was hit (for bullet holes).
+    const n = (this.lastNormal = this.lastNormal || [0, 1, 0]);
+    n[0] = 0;
+    n[1] = 1;
+    n[2] = 0;
     while (t <= maxT) {
       if (this.isSolid(x, y, z)) return t * VOXEL;
       if (tmx < tmy && tmx < tmz) {
         x += sx;
         t = tmx;
         tmx += tdx;
+        n[0] = -sx;
+        n[1] = 0;
+        n[2] = 0;
       } else if (tmy < tmz) {
         y += sy;
         t = tmy;
         tmy += tdy;
+        n[0] = 0;
+        n[1] = -sy;
+        n[2] = 0;
       } else {
         z += sz;
         t = tmz;
         tmz += tdz;
+        n[0] = 0;
+        n[1] = 0;
+        n[2] = -sz;
       }
     }
     return Infinity;

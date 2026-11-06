@@ -12,8 +12,8 @@ const settings = new Settings();
 const ui = new UI(settings);
 const profile = new Profile();
 
-const HINT_KBM = 'WASD move · Mouse look · Shift sprint · C crouch · Space jump · E interact (hold for terminals) · Esc pause';
-const HINT_PAD = 'L-stick move · R-stick look · LB sprint · B crouch · A jump · X interact (hold for terminals) · Start pause';
+const HINT_KBM = 'WASD move · Shift sprint · C crouch · E interact · Click attack · R reload · 1-4 weapons · Q blink · Esc pause';
+const HINT_PAD = 'L-stick move · LB sprint · B crouch · X interact · RT attack · RB reload · D-pad weapons · LT blink · Start pause';
 
 async function boot() {
   ui.showLayer('loading');
@@ -86,6 +86,11 @@ async function boot() {
     pause: () => false,
     cycleTask: () => false,
     blinkHeld: () => false,
+    attackPressed: () => false,
+    attackHeld: () => false,
+    reloadPressed: () => false,
+    weaponSlot: () => 0,
+    weaponCycle: () => 0,
   };
   const projected = new THREE.Vector3();
   const camSpace = new THREE.Vector3();
@@ -282,6 +287,7 @@ async function boot() {
       p.pitch = (pitchDeg * Math.PI) / 180;
     };
     window.__game = game;
+    window.__input = input;
     window.__breach = (origin) => game.director && game.director.breach(origin);
     window.__objective = () => game.tasks.view();
     window.__event = (type, origin) => game.events.start(type, { origin, scp: origin });
@@ -348,6 +354,7 @@ async function boot() {
         ui.setHealth(game.player.hp, game.player.maxHp);
         ui.setBlink(game.player.blinkActive, game.player.blink, game.player.eyesClosed);
         ui.setCapture(!input.locked && !input.usingPad);
+        ui.setWeapon(game.combat.hud());
         trackerTimer -= dt;
         if (trackerTimer <= 0) {
           trackerTimer = 0.15;
@@ -387,7 +394,8 @@ async function boot() {
     }
 
     ui.tick(dt);
-    renderer.render(game.scene, game.camera);
+    const showHands = state === 'playing' || state === 'paused' || state === 'shop' || state === 'ending';
+    renderer.render(game.scene, game.camera, showHands ? game.combat.view.scene : null);
 
     fpsFrames++;
     fpsTime += rawDt;

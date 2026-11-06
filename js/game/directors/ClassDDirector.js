@@ -211,8 +211,15 @@ export class ClassDDirector extends Director {
     if (g.player.dead) return;
     const ev = g.events;
     const out = !this.permitted();
+    if (this.playerHostile) {
+      // Officers shoot on sight now (GuardAI); nobody tries to cuff you.
+      const engaged = this.guards().some((gd) => gd.ai && gd.ai.job === 'engage');
+      g.ui.setWanted(engaged ? 'UNDER FIRE' : 'HOSTILE');
+      return;
+    }
     let chased = false;
     for (const gd of this.guards()) {
+      if (gd.ai && gd.ai.job) continue; // busy with an SCP, an anomaly or a riot
       if (gd.pursuing) {
         chased = true;
         const d = Math.hypot(gd.pos.x - g.player.pos.x, gd.pos.z - g.player.pos.z);
@@ -244,8 +251,26 @@ export class ClassDDirector extends Director {
     g.ui.setWanted(chased ? 'PURSUED' : out ? 'OUT OF BOUNDS' : null);
   }
 
+  /** Hitting staff makes you hostile; hitting other Class-D only matters if seen. */
+  onAttack(attacker, npc, dmg, killed) {
+    const g = this.game;
+    if (attacker !== g.player || this.finished) return;
+    if (npc.kind === 'classd') {
+      if (this.isSeen() && !this.playerHostile) {
+        const gd = this.guards().find((x) => this.canSee(x, 14));
+        if (gd && !gd.pursuing) this.pursue(gd, 'Hey! Break it up!');
+        this.changeStanding(killed ? -30 : -6, killed ? 'Murder in D-Block' : 'Fighting');
+      }
+      return;
+    }
+    if (this.playerHostile) return; // already shoot-on-sight
+    this.makeHostile(npc.kind === 'guard' && npc.alive ? npc : this.guards().find((x) => this.canSee(x, 20)) || null, 'assault');
+    this.changeStanding(-30, killed ? `You killed ${npc.name}` : `You attacked ${npc.name}`);
+  }
+
   onStandingZero() {
     this.hunted = true;
+    if (this.playerHostile) return; // already shoot-on-sight
     this.game.say('SITE INTERCOM', `${this.game.designation} is non-compliant. Security, detain on sight.`, 'pa');
     this.game.ui.banner('NON-COMPLIANT', 'SECURITY HAS ORDERS TO DETAIN YOU', 'red');
     for (const gd of this.guards()) {

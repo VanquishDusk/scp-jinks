@@ -116,7 +116,9 @@ export class Anomaly {
     this.wanderTo = null;
     this.speed = 1.5;
     this.alive = true;
+    this.hp = 90;
     this.dying = 0;
+    this.hitT = 0;
     this.t = Math.random() * 10;
     this.group = new THREE.Group();
     const coreMat = new THREE.MeshBasicMaterial({ color: 0xff3060 });
@@ -204,7 +206,8 @@ export class Anomaly {
     this.group.position.copy(this.pos);
     this.core.rotation.set(this.t * 1.3, this.t * 1.7, 0);
     this.halo.rotation.set(this.t * 0.4, this.t * 0.6, this.t * 0.3);
-    this.halo.scale.setScalar(1 + Math.sin(this.t * 6) * 0.12);
+    this.hitT = Math.max(0, this.hitT - dt);
+    this.halo.scale.setScalar((1 + Math.sin(this.t * 6) * 0.12) * (this.hitT > 0 ? 1.5 : 1));
     for (const s of this.shards) {
       s.a += dt * s.s;
       s.m.position.set(Math.cos(s.a) * s.r, s.y + Math.sin(s.a * 1.7) * 0.1, Math.sin(s.a) * s.r);

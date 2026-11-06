@@ -47,7 +47,21 @@ export const CATALOG = {
   },
 };
 
-export const CATALOG_ORDER = ['500', '999', '173'];
+CATALOG['096'] = {
+  id: '096',
+  name: 'SCP-096',
+  nick: 'The Shy Guy',
+  cls: 'Euclid',
+  price: 6500,
+  income: 85,
+  decay: 5,
+  risk: 6,
+  desc: 'A pale, emaciated humanoid that sits curled up, face hidden. Anyone who sees its face — in person, on a camera feed or in a photograph — is hunted down and killed. Nothing stops it. Afterwards it sits down again, wherever it is.',
+  perk: 'The richest grants on site. Recontainment means bagging its head from behind.',
+  imageNote: 'PHOTOGRAPH: [REDACTED — VIEWING PROHIBITED]',
+};
+
+export const CATALOG_ORDER = ['500', '999', '173', '096'];
 
 export const BLACK_MARKET_MARKUP = 1.25;
 

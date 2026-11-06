@@ -4,10 +4,11 @@ A single-player, retro voxel **SCP Foundation facility simulation** that runs en
 browser. It uses a low-resolution, dithered, PS2-era look with chunky voxel architecture, baked
 lighting and pixel-art textures that are generated in code.
 
-> **v0.4.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
+> **v0.5.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
 > Security Guard), plus an **SCP tycoon layer**. Buy SCPs, house them in the Heavy Containment
-> Wing and earn research grants, at the risk of breaches. SCP-173 is in, with real
-> line-of-sight and blinking rules. The game is silent by design (no audio).
+> Wing and earn research grants, at the risk of breaches. SCP-173 (line of sight and
+> blinking) and SCP-096 (seeing its face, even on a camera feed or in a photo, means death)
+> are in. The game is silent by design (no audio).
 
 ## Play
 
@@ -134,6 +135,7 @@ six chambers.
 | SCP-500 | Safe   | 600 CR  | 6 CR/min        | none        | The chamber terminal dispenses one full-heal pill per shift |
 | SCP-999 | Safe   | 1400 CR | 14 CR/min       | low         | Loose, it wanders the halls and heals anyone it hugs. The grid still fails open |
 | SCP-173 | Euclid | 3500 CR | 48 CR/min       | very high   | Lethal. Containment integrity decays fast |
+| SCP-096 | Euclid | 6500 CR | 85 CR/min       | extreme     | Lethal. Breaks out tearing doors apart. Hardest to recontain |
 
 - **Buying:**
   - **Security** buys from the **Procurement terminal** on the south wall of the Security Office.
@@ -164,6 +166,26 @@ six chambers.
 - **Class-D order: clean SCP-173's chamber.** A containment officer watches the statue and calls
   out "Blinking!" before he blinks. When he does, *you* have to be looking at it. Scrub three
   marked spots, then back out.
+
+### SCP-096
+
+- It sits curled up in the corner of its chamber with its face hidden, and it does nothing until
+  someone **sees its face**. That person can be you or any NPC. It counts if they see it
+  directly, through a glass window, on the chamber terminal's **camera feed**, or in an
+  **unmarked photograph** that sometimes turns up on a desk. The catalog shows no picture of it,
+  for good reason.
+- When that happens it screams for about 6 seconds, then **charges** at 7.4 m/s, faster than
+  you can sprint. It paths around the facility, **tears doors out of their frames**, and kills
+  anyone in its way. Anyone else who sees its face during the rampage is added to its list.
+- With every target dead it **sits back down where it is**. If that is outside its chamber, it
+  is now a breach.
+- **Recontainment (Security):** wait until it is sitting, come up **from behind**, and hold `E`
+  for four seconds to bag its head. If you see its face, you are dead. The marker leads you to
+  the safe side.
+- **Class-D order: SCP-096's meal tray.** Walk into its chamber, put the tray on the marker by
+  the door with your eyes down, and back out. It faces the corner, so keep it that way.
+- When a breach event picks SCP-096, a monitor glitch shows its face to someone on site, and it
+  goes after them.
 
 ### Health
 
@@ -201,6 +223,7 @@ js/
       catalog.js           SCP prices, research grants, integrity decay, breach risk
       ScpManager.js        Roster, chambers, deliveries, income, integrity, observation rules
       Scp173.js            SCP-173 model and behavior
+      Scp096.js            SCP-096 model, poses and rage behavior
       SimpleScps.js        SCP-500 and SCP-999
       voxelModel.js        Box-model geometry helper
   player/
@@ -246,7 +269,7 @@ When you open the game with `?debug`, the browser console gets these helpers:
 - `__credits(n)`: add Credits.
 - `__giveScp(id)`: install an SCP instantly.
 - `__resetScps()`: clear the roster.
-- `__event('scp', '173')`: breach a specific SCP.
+- `__event('scp', '173' | '096')`: breach a specific SCP.
 - `__speed(n)`: fast-forward the simulation.
 
 ## Credits & licensing

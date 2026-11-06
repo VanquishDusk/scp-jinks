@@ -62,6 +62,7 @@ export class Player {
     this.eyesClosed = false;
     this.closedT = 0;
     this.blinkActive = false; // drains only when it matters (SCP-173 nearby)
+    this.shake = 0; // camera shake amplitude (radians)
   }
 
   /** Blink meter: drains near SCP-173 and forces a blink when empty. */
@@ -358,5 +359,10 @@ export class Player {
     cam.rotation.y = this.yaw;
     cam.rotation.x = this.pitch;
     cam.rotation.z = -bobX * 0.35;
+    if (this.shake > 0) {
+      cam.rotation.x += (Math.random() - 0.5) * this.shake;
+      cam.rotation.z += (Math.random() - 0.5) * this.shake;
+      this.shake = Math.max(0, this.shake - dt * 0.2);
+    }
   }
 }

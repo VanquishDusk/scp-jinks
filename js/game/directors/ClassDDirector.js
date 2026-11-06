@@ -83,6 +83,15 @@ export class ClassDDirector extends Director {
       medical: { weight: 1, cooldown: 300, make: () => this.makeMedical() },
       headcount: { weight: 2, cooldown: 150, can: () => !DBLOCK.includes(this.game.zone) || Math.random() < 0.4, make: () => this.makeHeadcount() },
       meal: { weight: 1, cooldown: 300, make: () => this.makeMeal() },
+      tray096: {
+        weight: 2,
+        cooldown: 360,
+        can: () => {
+          const e = this.game.scps.entities.get('096');
+          return !!e && e.contained && e.state === 'docile' && !this.game.events.busy;
+        },
+        make: () => this.makeTray096(),
+      },
       clean173: {
         weight: 3,
         cooldown: 360,
@@ -542,6 +551,80 @@ export class ClassDDirector extends Director {
       standing: [3, 8],
       steps: [new TimerStep({ text: 'Eat in the D-Block Commons', zones: ['D-BLOCK COMMONS'], targetFn: () => ({ ...this.pt('w-commons-3'), y: 1.3 }), duration: 15, timeLimit: 90 })],
       announce: 'Meal service in the D-Block Commons. Fifteen minutes. Move.',
+    });
+  }
+
+  // ---- SCP-096 meal tray --------------------------------------------------------------
+  makeTray096() {
+    const g = this.game;
+    const e = g.scps.entities.get('096');
+    const ch = e.chamber;
+    const door = g.doorsById.get(ch.door);
+    const outside = { x: ch.outside[0] * 0.5, z: ch.outside[1] * 0.5 };
+    const tp = { x: ch.tray[0] * 0.5, z: ch.tray[1] * 0.5 };
+    let tray = null;
+    let marker = null;
+    let done = false;
+    const cleanup = () => {
+      if (marker) g.removeFloorMarker(marker);
+      marker = null;
+      if (e.contained && door.isOpen && !door.broken && !door.intersectsOpening(g.player.aabb())) door.close();
+    };
+    return new Task({
+      title: "Work detail: SCP-096's meal tray",
+      giver: 'Site Intercom',
+      kind: 'order',
+      reward: 200,
+      penalty: 30,
+      standing: [18, 20],
+      grants: { zones: [...ROUTE_HCZ, ch.zone], doors: ['d-block-gate', 'checkpoint-door', 'hcz-checkpoint', 'hcz-wing', ch.door] },
+      announce: `${g.designation}, report to the Heavy Containment Wing to deliver a meal tray to ${ch.name}. Do not look at the occupant.`,
+      steps: [
+        new ReachStep({
+          text: `Report to ${ch.name} in the Heavy Containment Wing`,
+          point: outside,
+          radius: 2.2,
+          timeLimit: 230,
+          detail: 'Through the Central Junction, up the North Corridor, through the HCZ Checkpoint.',
+          onEnd: (gm, ok) => {
+            if (!ok) return;
+            door.open();
+            gm.say('SITE INTERCOM', 'Door open. Place the tray on the marker inside the door. It is facing the corner. Keep it that way. Do NOT look at its face.', 'pa');
+          },
+        }),
+        new CustomStep({
+          text: 'Leave the tray on the marker — eyes down',
+          detail: 'Never walk around to its front. If you see its face, it will kill you.',
+          timeLimit: 90,
+          reward: 40,
+          onStart: (gm) => {
+            marker = gm.addFloorMarker(tp.x, tp.z, 0.5);
+            tray = gm.addTrigger(new Trigger({ id: 'tray', x: tp.x, y: 0.6, z: tp.z, half: [0.5, 0.2, 0.5] }));
+            tray.action = {
+              text: 'Set down the meal tray',
+              hold: 1.2,
+              use: (gg) => {
+                done = true;
+                tray.action = null;
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.3), new THREE.MeshBasicMaterial({ color: 0x8a8f96 }));
+                m.position.set(tp.x, 0.53, tp.z);
+                gg.addSessionObject(m);
+                return { ok: true, message: 'TRAY DELIVERED' };
+              },
+            };
+          },
+          update: () => done,
+          target: () => ({ x: tp.x, y: 0.7, z: tp.z }),
+          onEnd: (gm) => {
+            if (tray) gm.removeInteractable(tray);
+            if (marker) gm.removeFloorMarker(marker);
+            marker = null;
+          },
+        }),
+        new ReachStep({ text: 'Back out of the chamber', point: outside, radius: 1.6, onEnd: () => cleanup() }),
+        this.returnStep(220),
+      ],
+      onEnd: () => cleanup(),
     });
   }
 

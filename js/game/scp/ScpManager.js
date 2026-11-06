@@ -14,8 +14,9 @@ import { VOXEL } from '../../config.js';
 import { CATALOG, CATALOG_ORDER, BLACK_MARKET_MARKUP } from './catalog.js';
 import { Scp173 } from './Scp173.js';
 import { Scp500, Scp999 } from './SimpleScps.js';
+import { Scp096 } from './Scp096.js';
 
-const CLASSES = { '173': Scp173, '500': Scp500, '999': Scp999 };
+const CLASSES = { '173': Scp173, '500': Scp500, '999': Scp999, '096': Scp096 };
 
 export class ScpManager {
   constructor(game) {
@@ -52,7 +53,46 @@ export class ScpManager {
       this.spawn(s.id, s.slot);
       this.integrity.set(s.id, 65 + Math.random() * 35);
     }
+    this.photo = null;
+    if (this.entities.has('096') && Math.random() < 0.4) this.spawnPhotograph();
     this.refreshTerminals();
+  }
+
+  /** A careless researcher left a photo of SCP-096 lying on a desk. */
+  spawnPhotograph() {
+    const g = this.game;
+    const ids = ['loose-breakroom', 'loose-records', 'loose-admin', 'loose-medical', 'loose-cafeteria', 'doc-records', 'doc-admin'];
+    const p = g.point(ids[Math.floor(Math.random() * ids.length)]);
+    this.photo = g.addPickup({
+      id: 'photo-096',
+      kind: 'document',
+      x: p.x,
+      y: 1.27,
+      z: p.z,
+      name: 'Unmarked Photograph',
+      onPickup: (gm) => {
+        const e = this.entities.get('096');
+        gm.ui.toast('YOU TURN THE PHOTO OVER. A FACE. ITS FACE.', true);
+        if (e) e.enrage(gm.player, 'photo');
+      },
+    });
+    this.photo.action.text = 'Look at the photograph';
+  }
+
+  /** Camera feed on a chamber terminal: harmless — except for one SCP. */
+  feedAction(e) {
+    return {
+      feed: true,
+      text: 'View the chamber camera feed',
+      hold: 1,
+      use: (gm) => {
+        if (e.id === '096' && e.state === 'docile') {
+          e.enrage(gm.player, 'feed');
+          return { ok: false, message: 'FEED: IT LIFTS ITS HEAD. IT IS LOOKING AT THE CAMERA.' };
+        }
+        return { ok: true, message: `FEED: ${e.name} — ${e.contained ? 'IN CHAMBER, STATIONARY' : 'CHAMBER EMPTY'}` };
+      },
+    };
   }
 
   spawn(id, slot) {
@@ -62,6 +102,8 @@ export class ScpManager {
     const e = new Cls(this.game, chamber);
     this.entities.set(id, e);
     this.game.scene.add(e.object);
+    const t = this.game.terminals.get(chamber.terminal);
+    if (t && !t.action) t.action = this.feedAction(e);
     return e;
   }
 
@@ -165,6 +207,7 @@ export class ScpManager {
     if (wing) wing.open();
     const t = this.game.terminals.get(e.chamber.terminal);
     if (t) t.setStatus('alert', `${e.name} BREACH`);
+    if (e.onRelease) e.onRelease();
     return e;
   }
 
@@ -218,6 +261,25 @@ export class ScpManager {
     return this.game.world.visible(n.pos.x / VOXEL, 3.3, n.pos.z / VOXEL, pt.x / VOXEL, pt.y / VOXEL, pt.z / VOXEL);
   }
 
+  /** Everyone who can see SCP-096's face right now. */
+  faceViewers(e) {
+    const g = this.game;
+    const face = e.facePoint();
+    const out = [];
+    const p = g.player;
+    if (!p.dead && !p.eyesClosed && e.faces(p.pos.x, p.pos.z) && this.playerSees([face])) out.push(p);
+    for (const n of g.npcs.values()) {
+      if (!n.alive || !e.faces(n.pos.x, n.pos.z)) continue;
+      if (this.npcSees(n, face)) out.push(n);
+    }
+    return out;
+  }
+
+  onPlayerTargeted(e, how) {
+    const msg = { feed: 'YOU SAW ITS FACE ON THE FEED', photo: 'YOU SAW ITS FACE IN THE PHOTO', direct: 'YOU SAW ITS FACE' }[how] || 'YOU SAW ITS FACE';
+    this.game.ui.toast(msg, true);
+  }
+
   isObserved(e) {
     const pts = e.lookPoints();
     if (this.playerSees(pts)) return true;
@@ -229,7 +291,7 @@ export class ScpManager {
   refreshTerminals() {
     for (const ch of this.chambers) {
       const t = this.game.terminals.get(ch.terminal);
-      if (!t || t.action) continue;
+      if (!t || (t.action && !t.action.feed)) continue;
       const owned = this.game.profile.scps.find((s) => s.slot === ch.slot);
       const e = owned && this.entities.get(owned.id);
       if (!owned) t.setStatus('idle', 'CHAMBER AVAILABLE');
@@ -286,6 +348,25 @@ export class ScpManager {
       this.statusT = 1;
       this.refreshTerminals();
     }
+
+    // A loose SCP always becomes a facility event (alarms, grid, recontainment).
+    if (g.director && g.director.started && !g.events.busy) {
+      for (const e of this.entities.values()) {
+        if (!e.contained) {
+          g.events.start('scp', { scp: e.id });
+          break;
+        }
+      }
+    }
+
+    // SCP-096: the hunted warning and screen shake while it screams.
+    let hunted = null;
+    const s096 = this.entities.get('096');
+    if (s096 && s096.targets.includes(g.player) && !g.player.dead) {
+      hunted = s096.state === 'distress' ? 'IT IS SCREAMING. RUN.' : 'SCP-096 IS COMING FOR YOU';
+      g.player.shake = s096.state === 'distress' ? 0.05 : 0.02;
+    }
+    g.ui.setHunted(hunted);
 
     // Blink meter matters when SCP-173 is close.
     const s173 = this.entities.get('173');

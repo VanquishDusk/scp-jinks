@@ -261,13 +261,16 @@ export class SecurityDirector extends Director {
     const g = this.game;
     const e = ev.entity;
     const is173 = e.id === '173';
+    const is096 = e.id === '096';
     this.run(async () => {
       await this.wait(2);
       this.game.say(
         this.chief.name,
         is173
           ? `All units, ${e.name} is loose! Find it, keep your eyes on it, and get it caged. Never let it out of sight — and watch your blinking.`
-          : `${e.name} is out of its chamber. Find it and bring it back.`,
+          : is096
+            ? `All units, ${e.name} is out! Do NOT look at its face. Wait until it sits down, come up from behind and bag it. Nobody looks at it. Nobody.`
+            : `${e.name} is out of its chamber. Find it and bring it back.`,
         'radio',
       );
       this.tasks.add(
@@ -276,17 +279,21 @@ export class SecurityDirector extends Director {
           giver: this.chief.name,
           kind: 'emergency',
           tag: 'recontain',
-          reward: is173 ? 400 : 150,
-          penalty: is173 ? 80 : 30,
-          standing: [is173 ? 25 : 10, is173 ? 25 : 10],
+          reward: is096 ? 600 : is173 ? 400 : 150,
+          penalty: is096 ? 100 : is173 ? 80 : 30,
+          standing: [is173 || is096 ? 25 : 10, is173 || is096 ? 25 : 10],
           steps: [
             new CustomStep({
-              text: is173 ? 'Cage SCP-173 — stare at it and hold' : `Return ${e.name} to its chamber`,
-              detail: is173 ? 'It only moves when nobody is looking. Blink (Q) only while someone else watches it.' : 'It is harmless. Pick it up.',
+              text: is173 ? 'Cage SCP-173 — stare at it and hold' : is096 ? 'Bag SCP-096 — from behind' : `Return ${e.name} to its chamber`,
+              detail: is173
+                ? 'It only moves when nobody is looking. Blink (Q) only while someone else watches it.'
+                : is096
+                  ? 'Wait until it is sitting. Approach from behind. If you see its face, you are dead.'
+                  : 'It is harmless. Pick it up.',
               onStart: () => {
                 e.action = {
-                  text: is173 ? 'Secure SCP-173 in a containment cage' : `Carry ${e.name} back to containment`,
-                  hold: is173 ? 3 : 2,
+                  text: is173 ? 'Secure SCP-173 in a containment cage' : is096 ? 'Pull the bag over its head' : `Carry ${e.name} back to containment`,
+                  hold: is173 ? 3 : is096 ? 4 : 2,
                   use: (gm) => {
                     gm.events.recontainScp(true);
                     return { ok: true, message: `${e.name} RECONTAINED` };
@@ -294,7 +301,13 @@ export class SecurityDirector extends Director {
                 };
               },
               update: (gm) => !gm.events.scpLoose,
-              target: () => ({ x: e.pos.x, y: e.pos.y + 2.4, z: e.pos.z }),
+              target: () => {
+                if (!is096) return { x: e.pos.x, y: e.pos.y + 2.4, z: e.pos.z };
+                // Guide the officer to the safe side: behind it.
+                const fx = -Math.sin(e.yaw);
+                const fz = -Math.cos(e.yaw);
+                return { x: e.pos.x - fx * 1.3, y: e.pos.y + 0.6, z: e.pos.z - fz * 1.3 };
+              },
               onEnd: () => {
                 e.action = null;
               },

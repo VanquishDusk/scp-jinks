@@ -72,6 +72,7 @@ export class Door {
     this.faulty = false; // reader malfunction
     this.passes = 0; // temporary authorizations (Class-D work routes)
     this.unpowered = false; // power failure: heavy doors fail closed
+    this.broken = false; // torn open (SCP-096): stuck open until reset
     this.duration = t.duration;
     this.startOpen = !!o.open;
 
@@ -222,7 +223,7 @@ export class Door {
   }
 
   idleLedColor() {
-    if (this.unpowered) return 0x101010;
+    if (this.unpowered || this.broken) return 0x101010;
     if (this.locked || this.sealed) return LED_IDLE[4];
     if (this.passes > 0) return 0x40ff60;
     if (this.released && !this.requiresCard) return 0x40ff60;
@@ -241,12 +242,14 @@ export class Door {
     this.faulty = false;
     this.passes = 0;
     this.unpowered = false;
+    this.broken = false;
     this.ledMat.color.setHex(this.idleLedColor());
     this.applyPose();
   }
 
   /** Why the door refuses someone with this clearance, or null if allowed. */
   denyReason(clearance) {
+    if (this.broken) return 'DOOR DESTROYED — TORN FROM ITS TRACKS';
     if (this.locked) return this.locked;
     if (this.unpowered) return 'NO POWER — DOOR MOTOR OFFLINE';
     if (this.sealed) return this.sealed;
@@ -269,7 +272,24 @@ export class Door {
   }
 
   close() {
+    if (this.broken) return;
     if (this.state !== 'closed') this.state = 'closing';
+  }
+
+  /** Ripped open by something very strong: stays open. */
+  tearOpen() {
+    this.broken = true;
+    this.progress = 1;
+    this.state = 'open';
+    this.applyPose();
+    this.refreshLed();
+  }
+
+  /** Maintenance repairs a destroyed door. */
+  repair() {
+    if (!this.broken) return;
+    this.broken = false;
+    this.refreshLed();
   }
 
   refreshLed() {
@@ -342,6 +362,7 @@ export class Door {
 
   promptText(clearance) {
     const verb = this.isOpen ? 'Close' : 'Open';
+    if (this.broken) return { text: `${this.name}`, sub: 'DESTROYED', denied: true };
     if (this.locked) return { text: `${this.name}`, sub: 'LOCKED', denied: true };
     if (this.unpowered) return { text: `${this.name}`, sub: 'NO POWER', denied: true };
     if (this.passes > 0 && clearance < this.clearance) return { text: `${verb} ${this.name}`, sub: 'ROUTE AUTHORIZED', denied: false };

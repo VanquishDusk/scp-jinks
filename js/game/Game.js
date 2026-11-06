@@ -166,6 +166,11 @@ export class Game {
 
   /** Does a closed (or closing) door block the straight line a→b? (xz plane) */
   doorBlocksLine(ax, az, bx, bz) {
+    return !!this.doorOnLine(ax, az, bx, bz);
+  }
+
+  /** The first closed door crossing the line a→b, or null. */
+  doorOnLine(ax, az, bx, bz) {
     const dx = bx - ax;
     const dz = bz - az;
     for (const d of this.doors) {
@@ -192,9 +197,9 @@ export class Game {
           }
         }
       }
-      if (hit) return true;
+      if (hit) return d;
     }
-    return false;
+    return null;
   }
 
   /** Gameplay point (meters) defined in the facility layout. */
@@ -488,6 +493,8 @@ export class Game {
       if (Math.abs(org.x - o.x) > 6 || Math.abs(org.z - o.z) > 6) continue;
       for (const b of it.boxes()) {
         const t = rayBox(o, dir, b);
+        // Standing inside an open doorway shouldn't make it swallow every ray.
+        if (t !== null && t < 0.05 && it instanceof Door) continue;
         if (t !== null && t < bestT) {
           bestT = t;
           best = it;

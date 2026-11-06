@@ -300,6 +300,8 @@ export function buildFacility(f) {
         yaw: north ? 180 : 0,
         outside: [cx + 6, north ? 16 : 16],
         watch: [cx + 6, north ? 10 : 21.5, north ? 0 : 180],
+        corner: [cx + 1.3, north ? 3.3 : 28.7, north ? 45 : 135], // facing into the far corner
+        tray: [cx + 6.5, north ? 10.6 : 21],
         spots: [[cx + 2, sz], [cx + 10, sz], [cx + 2.5, north ? 9.5 : 22], [cx + 9.5, north ? 9.5 : 22], [cx + 6, north ? 3 : 28.5]],
       });
     }

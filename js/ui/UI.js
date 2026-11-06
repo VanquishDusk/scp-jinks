@@ -63,6 +63,7 @@ export class UI {
       standingValue: $('standing-value'),
       clock: $('clock'),
       wanted: $('wanted'),
+      hunted: $('hunted'),
       blinkMeter: $('blink-meter'),
       blink: $('blink'),
       blinkOverlay: $('blink-overlay'),
@@ -550,6 +551,7 @@ export class UI {
     this.el.trList.innerHTML = '';
     this.setWanted(null);
     this.setBlink(false, 1, false);
+    this.setHunted(null);
     this.setPrompt(null);
   }
 
@@ -654,7 +656,9 @@ export class UI {
           <span>Breach risk</span><span class="risk"></span>
           ${it.integrity !== null ? '<span>Integrity</span><span class="s-integ"></span>' : ''}
         </div>
+        ${it.imageNote ? '<div class="s-photo"></div>' : ''}
         <div class="s-desc"></div><div class="s-perk"></div><div class="s-status"></div>`;
+      if (it.imageNote) div.querySelector('.s-photo').textContent = it.imageNote;
       div.querySelector('.s-name').textContent = it.name;
       div.querySelector('.s-nick').textContent = `"${it.nick}"`;
       const cls = div.querySelector('.s-class');
@@ -720,6 +724,13 @@ export class UI {
     if (txt === this.clockKey) return;
     this.clockKey = txt;
     this.el.clock.innerHTML = `SITE TIME ${hh}:${mm}<span class="left">SHIFT ENDS IN ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</span>`;
+  }
+
+  setHunted(text) {
+    if (text === this.huntedText) return;
+    this.huntedText = text;
+    this.el.hunted.classList.toggle('hidden', !text);
+    this.el.hunted.textContent = text || '';
   }
 
   setWanted(state) {
@@ -831,7 +842,7 @@ export class UI {
     html += row('Personnel', `${s.role.name} · ${s.designation}`);
     html += row('Time on shift', `${mins}:${secs}`);
     if (s.standingLabel) html += row(`Final ${s.standingLabel.toLowerCase()}`, Math.round(s.standing), s.standing > 25 ? 'ok' : 'bad');
-    const causes = { scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters' };
+    const causes = { scp096: 'Torn apart by SCP-096', scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters' };
     if (s.cause) html += row('Cause of death', causes[s.cause] || 'Unknown', 'bad');
     html += row('Tasks completed', s.history.filter((h) => h.status === 'complete').length, 'ok');
     if (s.failed) html += row('Tasks failed or missed', s.failed, 'bad');

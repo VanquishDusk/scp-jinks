@@ -204,9 +204,10 @@ export class Player {
     let wx = fx * mv.y + rx * mv.x;
     let wz = fz * mv.y + rz * mv.x;
 
-    const wantsSprint = input.sprint() && mv.y > 0.3 && !this.crouching && !this.exhausted;
+    const heavy = this.carrying === 'crate';
+    const wantsSprint = input.sprint() && mv.y > 0.3 && !this.crouching && !this.exhausted && !heavy;
     this.sprinting = wantsSprint && moveLen > 0.1;
-    const speed = this.crouching ? CROUCH_SPEED : this.sprinting ? SPRINT : WALK;
+    const speed = (this.crouching ? CROUCH_SPEED : this.sprinting ? SPRINT : WALK) * (heavy ? 0.7 : 1);
     wx *= speed;
     wz *= speed;
 

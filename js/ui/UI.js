@@ -54,14 +54,14 @@ export class UI {
       itemHeld: $('item-held'),
       tracker: $('tracker'),
       trKind: $('tr-kind'),
-      trGiver: $('tr-giver'),
-      trTitle: $('tr-title'),
-      trDone: $('tr-done'),
-      trCurrent: $('tr-current'),
-      trProgress: $('tr-progress'),
-      trCheck: $('tr-check'),
-      trDetail: $('tr-detail'),
-      trOptional: $('tr-optional'),
+      trSwitch: $('tr-switch'),
+      trList: $('tr-list'),
+      standing: $('standing'),
+      standingLabel: $('standing-label'),
+      standingFill: $('standing-fill'),
+      standingValue: $('standing-value'),
+      clock: $('clock'),
+      wanted: $('wanted'),
       notify: $('notify'),
       banner: $('banner'),
       bannerTitle: $('banner-title'),
@@ -527,7 +527,9 @@ export class UI {
     this.setMarker(null);
     this.setHold(0);
     this.trackerKey = '';
-    this.el.tracker.classList.add('hidden');
+    this.clockKey = '';
+    this.el.trList.innerHTML = '';
+    this.setWanted(null);
     this.setPrompt(null);
   }
 
@@ -553,67 +555,89 @@ export class UI {
     this.el.itemHeld.textContent = text || '';
   }
 
-  /** Render the objective tracker from ObjectiveManager.view(). */
-  setTracker(view) {
-    const key = JSON.stringify(view);
+  /** Render the pager: every open task, focused one expanded. */
+  setPager(tasks) {
+    const key = JSON.stringify(tasks);
     if (key === this.trackerKey) return;
     this.trackerKey = key;
-    const p = view.primary;
-    const e = this.el;
-    if (!p && !view.optional.length) {
-      e.tracker.classList.add('hidden');
+    const list = this.el.trList;
+    list.innerHTML = '';
+    this.el.trSwitch.style.visibility = tasks.length > 1 ? 'visible' : 'hidden';
+    this.el.trKind.textContent = tasks.length ? `PAGER · ${tasks.length} OPEN` : 'PAGER';
+    if (!tasks.length) {
+      const d = document.createElement('div');
+      d.className = 'tr-empty';
+      d.textContent = 'No open tasks. Stay alert.';
+      list.appendChild(d);
       return;
     }
-    e.tracker.classList.remove('hidden');
-    e.tracker.classList.toggle('emergency', !!p && p.kind === 'emergency');
-    if (p) {
-      e.trKind.textContent = p.kind === 'emergency' ? 'EMERGENCY' : 'ASSIGNMENT';
-      e.trGiver.textContent = p.giver || '';
-      e.trTitle.textContent = p.title;
-      e.trDone.innerHTML = '';
-      for (const d of p.done) {
-        const li = document.createElement('li');
-        li.textContent = d;
-        e.trDone.appendChild(li);
+    const kinds = { task: 'TASK', order: 'ORDER', emergency: 'EMERGENCY', opportunity: 'OPPORTUNITY' };
+    for (const t of tasks) {
+      const row = document.createElement('div');
+      row.className = `task ${t.kind}${t.focused ? ' focused' : ''}`;
+      const top = document.createElement('div');
+      top.className = 't-top';
+      const title = document.createElement('span');
+      title.textContent = t.title;
+      top.appendChild(title);
+      if (t.timeLeft !== null) {
+        const tm = document.createElement('span');
+        tm.className = `t-time${t.timeLeft <= 20 ? ' urgent' : ''}`;
+        tm.textContent = `${Math.floor(t.timeLeft / 60)}:${String(t.timeLeft % 60).padStart(2, '0')}`;
+        top.appendChild(tm);
       }
-      e.trCurrent.classList.toggle('waiting', !p.current);
-      const cur = p.current || 'Awaiting further instructions';
-      if (p.current && cur !== this.lastCurrent) {
-        // Briefly highlight a newly issued objective instead of a popup.
-        e.trCurrent.classList.remove('fresh');
-        void e.trCurrent.offsetWidth;
-        e.trCurrent.classList.add('fresh');
+      const kind = document.createElement('div');
+      kind.className = 't-kind';
+      kind.textContent = `${kinds[t.kind]}${t.giver ? ` · ${t.giver}` : ''}`;
+      row.append(kind, top);
+      if (t.focused) {
+        const add = (cls, text) => {
+          if (!text) return;
+          const d = document.createElement('div');
+          d.className = cls;
+          d.textContent = text;
+          row.appendChild(d);
+        };
+        add('t-cur', `▸ ${t.current}`);
+        add('t-prog', t.progress);
+        add('t-detail', t.detail);
       }
-      this.lastCurrent = cur;
-      e.trCurrent.textContent = cur;
-      e.trProgress.textContent = p.progress || '';
-      e.trDetail.textContent = p.detail || '';
-      e.trCheck.innerHTML = '';
-      if (p.checklist) {
-        for (const c of p.checklist) {
-          const li = document.createElement('li');
-          li.textContent = c.text;
-          if (c.done) li.className = 'done';
-          e.trCheck.appendChild(li);
-        }
-      }
-    } else {
-      e.trKind.textContent = 'NO ACTIVE ASSIGNMENT';
-      e.trGiver.textContent = '';
-      e.trTitle.textContent = '';
-      e.trDone.innerHTML = '';
-      e.trCurrent.textContent = 'Awaiting instructions';
-      e.trCurrent.classList.add('waiting');
-      e.trProgress.textContent = '';
-      e.trDetail.textContent = '';
-      e.trCheck.innerHTML = '';
+      list.appendChild(row);
     }
-    e.trOptional.innerHTML = '';
-    for (const o of view.optional) {
-      const div = document.createElement('div');
-      div.textContent = `${o.title}${o.progress ? ` (${o.progress})` : ''}`;
-      e.trOptional.appendChild(div);
+  }
+
+  setStanding(label, value, delta) {
+    this.el.standingLabel.textContent = label;
+    this.el.standingFill.style.width = `${Math.max(0, Math.min(100, value))}%`;
+    this.el.standingValue.textContent = Math.round(value);
+    const el = this.el.standing;
+    el.classList.toggle('low', value < 25);
+    el.classList.toggle('mid', value >= 25 && value < 50);
+    if (delta < 0) {
+      el.classList.remove('hit');
+      void el.offsetWidth;
+      el.classList.add('hit');
     }
+  }
+
+  setClock(t, length) {
+    // 06:00 → 14:00 compressed into the shift length.
+    const mins = 6 * 60 + Math.floor((t / length) * 8 * 60);
+    const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+    const mm = String(mins % 60).padStart(2, '0');
+    const left = Math.max(0, Math.ceil(length - t));
+    const txt = `${hh}:${mm}|${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    if (txt === this.clockKey) return;
+    this.clockKey = txt;
+    this.el.clock.innerHTML = `SITE TIME ${hh}:${mm}<span class="left">SHIFT ENDS IN ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</span>`;
+  }
+
+  setWanted(state) {
+    const el = this.el.wanted;
+    el.classList.toggle('hidden', !state);
+    if (!state) return;
+    el.textContent = state === 'PURSUED' ? '! PURSUED — LOSE THEM !' : 'OUT OF BOUNDS';
+    el.classList.toggle('pursued', state === 'PURSUED');
   }
 
   /** Slide-in notification card. type sets the color scheme. */
@@ -699,25 +723,30 @@ export class UI {
   showResult(s) {
     const titles = {
       escaped: ['Escaped', 'You reached the surface. The Foundation will be looking for you.'],
-      complete: ['Shift Complete', 'Site-██ is secure. Report for duty tomorrow at 06:00.'],
+      complete: ['Shift Complete', 'You made it to the end of the shift. Report again tomorrow at 06:00.'],
+      survived: ['Survived the Day', 'Lights out. You lived to see another shift in D-Block.'],
       terminated: ['Terminated', s.role.id === 'classd' ? 'Subject deceased. A replacement has been requested.' : 'Officer killed in the line of duty.'],
+      detained: ['Detained', 'Security caught you out of bounds. You will not be seen in D-Block again.'],
+      lightsout: ['Missed Lights Out', 'You were not in your cell at lights out. Security has dealt with it.'],
+      dismissed: ['Dismissed', 'Your performance record fell to zero. Clear out your locker.'],
     };
     const [title, sub] = titles[s.result];
     this.el.resultTitle.textContent = title;
-    this.el.resultTitle.style.color = s.result === 'terminated' ? '#ff6a50' : '';
+    this.el.resultTitle.style.color = ['escaped', 'complete', 'survived'].includes(s.result) ? '' : '#ff6a50';
     this.el.resultSub.textContent = sub;
     const mins = Math.floor(s.time / 60);
     const secs = String(Math.floor(s.time % 60)).padStart(2, '0');
     const row = (k, v, cls = '') => `<div><span class="k">${k}</span><span class="${cls}">${v}</span></div>`;
     let html = '';
     html += row('Personnel', `${s.role.name} · ${s.designation}`);
-    html += row('Shift length', `${mins}:${secs}`);
-    html += row('Objectives completed', s.completed, 'ok');
-    if (s.failed) html += row('Objectives failed', s.failed, 'bad');
+    html += row('Time on shift', `${mins}:${secs}`);
+    if (s.standingLabel) html += row(`Final ${s.standingLabel.toLowerCase()}`, Math.round(s.standing), s.standing > 25 ? 'ok' : 'bad');
+    html += row('Tasks completed', s.history.filter((h) => h.status === 'complete').length, 'ok');
+    if (s.failed) html += row('Tasks failed or missed', s.failed, 'bad');
     html += row('Credits earned', `${s.credits >= 0 ? '+' : ''}${s.credits.toLocaleString()} CR`, 'cr');
     html += row('Total credits', `${s.total.toLocaleString()} CR`, 'cr');
     if (s.history.length) {
-      html += '<ul>' + s.history.map((h) => `<li>${h.status === 'complete' ? '✓' : '✗'} ${escapeHtml(h.title)}</li>`).join('') + '</ul>';
+      html += '<ul>' + s.history.slice(-10).map((h) => `<li>${h.status === 'complete' ? '✓' : '✗'} ${escapeHtml(h.title)}</li>`).join('') + '</ul>';
     }
     this.el.resultStats.innerHTML = html;
     this.showLayer('menu');

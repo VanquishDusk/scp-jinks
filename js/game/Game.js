@@ -1,6 +1,6 @@
 // A game session: builds the facility, owns the scene/camera, and runs the
 // player, NPCs, doors, interactables, hazards, facility events and the
-// class-specific shift director that hands out objectives.
+// class-specific shift director that hands out tasks and events.
 
 import * as THREE from 'three';
 import { VOXEL, ROLES } from '../config.js';
@@ -16,7 +16,7 @@ import { NPC } from './NPC.js';
 import { Terminal, Pickup, FirstAid, SpecimenStand, Trigger } from './Interactables.js';
 import { HazardFloor } from './Hazards.js';
 import { FacilityEvents } from './Events.js';
-import { ObjectiveManager } from './objectives.js';
+import { TaskManager } from './objectives.js';
 import { ClassDDirector } from './directors/ClassDDirector.js';
 import { SecurityDirector } from './directors/SecurityDirector.js';
 
@@ -157,9 +157,42 @@ export class Game {
     this.spawns = f.spawns;
     this.shots = f.shots;
     this.events = new FacilityEvents(this);
-    this.objectives = new ObjectiveManager(this);
+    this.tasks = new TaskManager(this);
     progress(1, 'Facility online');
     await nextFrame();
+  }
+
+  /** Does a closed (or closing) door block the straight line a→b? (xz plane) */
+  doorBlocksLine(ax, az, bx, bz) {
+    const dx = bx - ax;
+    const dz = bz - az;
+    for (const d of this.doors) {
+      if (d.progress > 0.6) continue;
+      const o = d.openingBox;
+      let t0 = 0;
+      let t1 = 1;
+      let hit = true;
+      for (const [p, dd, lo, hi] of [[ax, dx, o[0], o[3]], [az, dz, o[2], o[5]]]) {
+        if (Math.abs(dd) < 1e-9) {
+          if (p < lo || p > hi) {
+            hit = false;
+            break;
+          }
+        } else {
+          let ta = (lo - p) / dd;
+          let tb = (hi - p) / dd;
+          if (ta > tb) [ta, tb] = [tb, ta];
+          t0 = Math.max(t0, ta);
+          t1 = Math.min(t1, tb);
+          if (t0 > t1) {
+            hit = false;
+            break;
+          }
+        }
+      }
+      if (hit) return true;
+    }
+    return false;
   }
 
   /** Gameplay point (meters) defined in the facility layout. */
@@ -238,9 +271,24 @@ export class Game {
     this.sessionColliders.push(box);
   }
 
+  removeCollider(box) {
+    this.sessionColliders = this.sessionColliders.filter((c) => c !== box);
+  }
+
   addSessionObject(obj) {
     this.sessionObjects.push(obj);
     this.scene.add(obj);
+  }
+
+  removeSessionObject(obj) {
+    this.sessionObjects = this.sessionObjects.filter((o) => o !== obj);
+    this.scene.remove(obj);
+  }
+
+  removeStand(s) {
+    this.stands = this.stands.filter((x) => x !== s);
+    this.sessionColliders = this.sessionColliders.filter((c) => c !== s.collider);
+    this.scene.remove(s.object);
   }
 
   removeInteractable(obj) {
@@ -294,8 +342,8 @@ export class Game {
     }
     for (const fa of this.firstAids) fa.cooldown = 0;
     this.testFloor.stop();
+    if (this.tasks) this.tasks.reset();
     if (this.events) this.events.reset();
-    if (this.objectives) this.objectives.reset();
   }
 
   // ---------------------------------------------------------------------------
@@ -323,10 +371,7 @@ export class Game {
 
   /** Called once the player actually takes control. */
   startShift() {
-    if (this.director && !this.director.started) {
-      this.director.started = true;
-      this.director.start();
-    }
+    if (this.director && !this.director.started) this.director.start();
   }
 
   endShift(result) {
@@ -334,12 +379,14 @@ export class Game {
     this.ended = result;
     if (this.director) this.director.stop();
     this.profile.record(result);
-    const om = this.objectives;
+    const om = this.tasks;
     const summary = {
       result,
       role: this.role,
       designation: this.designation,
       credits: om.credits,
+      standing: this.director ? this.director.standing : 0,
+      standingLabel: this.director ? this.director.standingLabel : '',
       total: this.profile.credits,
       completed: om.completed,
       failed: om.failedCount,
@@ -358,7 +405,10 @@ export class Game {
 
   onNpcDeath(npc) {
     if (this.ended) return;
-    if (npc.kind === 'scientist' || npc.kind === 'guard') this.ui.toast(`${npc.name.toUpperCase()} IS DOWN`, true);
+    if (npc.kind === 'scientist' || npc.kind === 'guard') {
+      this.ui.toast(`${npc.name.toUpperCase()} IS DOWN`, true);
+      if (this.role.id === 'security' && npc.kind === 'scientist' && this.director) this.director.changeStanding(-8, 'Personnel casualty on your watch');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -393,7 +443,7 @@ export class Game {
     this.events.update(dt);
 
     if (!p.dead && !this.ended) {
-      this.objectives.update(dt);
+      this.tasks.update(dt);
       this.updateInteraction(input, dt);
       this.updateZone();
     }

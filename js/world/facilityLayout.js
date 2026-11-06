@@ -545,6 +545,16 @@ export function buildFacility(f) {
   P('breach-hcz', 109, 15, { label: 'HCZ Checkpoint' });
   P('breach-research', 166, 81, { label: 'Test Chamber 01' });
 
+  // Class-D work details and stray keycards.
+  P('spill-commons', 11, 66); P('spill-washroom', 11, 84.5); P('spill-westcorr', 82, 65);
+  P('spill-cafeteria', 90, 56.5); P('spill-hub', 106, 60);
+  P('crate-storage', 87.5, 85);
+  P('drop-kitchen', 102.5, 45, { label: 'Kitchen' });
+  P('drop-cafeteria', 95, 49, { label: 'Cafeteria' });
+  P('loose-breakroom', 129, 107); P('loose-records', 124.8, 48.2); P('loose-admin', 83.8, 106.2);
+  P('loose-medical', 132.8, 84.4); P('loose-cafeteria', 86, 41);
+  P('server-door', 145.5, 66);
+
   // Wall terminals: id, x, y, z (on the wall surface), facing, label.
   f.terminal('duty', 71.3, 3.6, 44, 's', 'DUTY ROSTER');
   f.terminal('log-alpha', 58.5, 3.6, 56, 's', 'CHECKPOINT LOG');
@@ -559,6 +569,7 @@ export function buildFacility(f) {
   f.terminal('lock-res-b', 157, 3.6, 88, 'e', 'CONTAINMENT LOCK');
   f.terminal('lock-res-c', 156, 3.6, 74, 'w', 'CONTAINMENT LOCK');
   f.terminal('tc-control', 156, 3.6, 84.5, 'w', 'TEST CONTROL');
+  f.terminal('power-main', 93, 3.6, 69, 's', 'MAIN BREAKER');
 
   f.firstAid(124, 3.6, 79.5, 'e');
   f.firstAid(3, 3.6, 65, 'e');

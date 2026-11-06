@@ -70,6 +70,8 @@ export class Door {
     this.released = false; // emergency release: keycard check bypassed
     this.sealed = null; // temporary seal message (e.g. test in progress)
     this.faulty = false; // reader malfunction
+    this.passes = 0; // temporary authorizations (Class-D work routes)
+    this.unpowered = false; // power failure: heavy doors fail closed
     this.duration = t.duration;
     this.startOpen = !!o.open;
 
@@ -220,7 +222,9 @@ export class Door {
   }
 
   idleLedColor() {
+    if (this.unpowered) return 0x101010;
     if (this.locked || this.sealed) return LED_IDLE[4];
+    if (this.passes > 0) return 0x40ff60;
     if (this.released && !this.requiresCard) return 0x40ff60;
     return LED_IDLE[Math.min(5, this.clearance)];
   }
@@ -235,6 +239,8 @@ export class Door {
     this.released = false;
     this.sealed = null;
     this.faulty = false;
+    this.passes = 0;
+    this.unpowered = false;
     this.ledMat.color.setHex(this.idleLedColor());
     this.applyPose();
   }
@@ -242,9 +248,11 @@ export class Door {
   /** Why the door refuses someone with this clearance, or null if allowed. */
   denyReason(clearance) {
     if (this.locked) return this.locked;
+    if (this.unpowered) return 'NO POWER — DOOR MOTOR OFFLINE';
     if (this.sealed) return this.sealed;
     if (this.faulty) return 'READER MALFUNCTION — MAINTENANCE REQUIRED';
     if (this.released && !this.requiresCard) return null;
+    if (this.passes > 0) return null;
     if (clearance < this.clearance) {
       return `ACCESS DENIED — ${CLEARANCE[this.clearance].name.toUpperCase()} CLEARANCE REQUIRED`;
     }
@@ -335,6 +343,8 @@ export class Door {
   promptText(clearance) {
     const verb = this.isOpen ? 'Close' : 'Open';
     if (this.locked) return { text: `${this.name}`, sub: 'LOCKED', denied: true };
+    if (this.unpowered) return { text: `${this.name}`, sub: 'NO POWER', denied: true };
+    if (this.passes > 0 && clearance < this.clearance) return { text: `${verb} ${this.name}`, sub: 'ROUTE AUTHORIZED', denied: false };
     if (this.sealed) return { text: `${this.name}`, sub: 'SEALED', denied: true };
     if (this.faulty) return { text: `${this.name}`, sub: 'READER FAULT', denied: true };
     if (this.released && !this.requiresCard) return { text: `${verb} ${this.name}`, sub: 'EMERGENCY RELEASE', denied: false };

@@ -21,6 +21,7 @@ const POST_FRAG = /* glsl */ `
   uniform float uFade;
   uniform float uDesat;
   uniform float uAlarm;
+  uniform float uDark;
   uniform vec3 uAlarmColor;
   varying vec2 vUv;
 
@@ -43,6 +44,10 @@ const POST_FRAG = /* glsl */ `
     c = c * 0.96 + vec3(0.008, 0.010, 0.016);
     float luma = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(c, vec3(luma), uDesat);
+
+    // Power failure: most light is gone, shadows crush to black.
+    c = c * (1.0 - uDark) - vec3(0.05) * uDark;
+    c = max(c, vec3(0.0));
 
     // Emergency lighting wash (containment breach alarms).
     vec3 alarmTint = vec3(dot(c, vec3(0.35, 0.5, 0.15))) * uAlarmColor * 1.7 + uAlarmColor * 0.03;
@@ -93,6 +98,7 @@ export class RetroRenderer {
       uFade: { value: 1.0 },
       uDesat: { value: 0.0 },
       uAlarm: { value: 0.0 },
+      uDark: { value: 0.0 },
       uAlarmColor: { value: new THREE.Vector3(1, 0.25, 0.2) },
     };
     const mat = new THREE.ShaderMaterial({
@@ -132,6 +138,10 @@ export class RetroRenderer {
 
   setDesaturate(v) {
     this.uniforms.uDesat.value = v;
+  }
+
+  setDarkness(v) {
+    this.uniforms.uDark.value = v;
   }
 
   setAlarm(v, color) {

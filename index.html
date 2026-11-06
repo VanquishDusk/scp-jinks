@@ -35,18 +35,19 @@
       <div class="badge-clear" id="badge-clear"></div>
     </div>
     <div id="credits" class="credits"><span class="cr-label">CREDITS</span> <span id="credits-value">0</span> CR<span id="credits-delta" class="cr-delta"></span></div>
+    <div id="standing" class="standing">
+      <span id="standing-label">STANDING</span>
+      <div class="sbar"><div id="standing-fill" class="sbar-fill"></div></div>
+      <span id="standing-value"></span>
+    </div>
+    <div id="clock" class="clock"></div>
     <div id="item-held" class="item-held hidden"></div>
+    <div id="wanted" class="wanted hidden"></div>
 
     <div class="right-col">
-    <div id="tracker" class="tracker hidden">
-      <div class="tr-head"><span id="tr-kind">ASSIGNMENT</span><span id="tr-giver"></span></div>
-      <div id="tr-title" class="tr-title"></div>
-      <ul id="tr-done" class="tr-done"></ul>
-      <div id="tr-current" class="tr-current"></div>
-      <div id="tr-progress" class="tr-progress"></div>
-      <ul id="tr-check" class="tr-check"></ul>
-      <div id="tr-detail" class="tr-detail"></div>
-      <div id="tr-optional" class="tr-optional"></div>
+    <div id="tracker" class="tracker">
+      <div class="tr-head"><span id="tr-kind">PAGER</span><span id="tr-switch">TAB: SWITCH</span></div>
+      <div id="tr-list" class="tr-list"></div>
     </div>
     <div id="notify" class="notify"></div>
     </div>
@@ -143,6 +144,7 @@
           <tr><td>Jump</td><td>Space</td><td>A</td></tr>
           <tr><td>Interact</td><td>E / F / Left click</td><td>X / RB</td></tr>
           <tr><td>Terminals &amp; repairs</td><td>Hold E</td><td>Hold X</td></tr>
+          <tr><td>Switch pager task</td><td>Tab</td><td>Y</td></tr>
           <tr><td>Pause</td><td>Esc / P</td><td>Start</td></tr>
           <tr><td>Menus</td><td>Arrows / WASD · Enter · Esc</td><td>D-pad · A · B</td></tr>
         </tbody>

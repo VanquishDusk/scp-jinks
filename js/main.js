@@ -162,7 +162,7 @@ async function boot() {
 
   /** Project the objective target onto the screen, clamped to the edges. */
   const updateMarker = () => {
-    const t = settings.get('objectiveMarker') ? game.objectives.markerTarget() : null;
+    const t = settings.get('objectiveMarker') ? game.tasks.markerTarget() : null;
     if (!t) {
       ui.setMarker(null);
       return;
@@ -186,7 +186,7 @@ async function boot() {
       y = Math.max(margin + 90, Math.min(h - margin, y));
     }
     const p = game.player.pos;
-    const emergency = game.objectives.primary && game.objectives.primary.kind === 'emergency';
+    const emergency = t.kind === 'emergency';
     ui.setMarker({ x, y, dist: Math.hypot(t.x - p.x, t.z - p.z), edge, emergency });
   };
   // Ignore the Esc that just released the mouse so it doesn't instantly resume.
@@ -233,7 +233,11 @@ async function boot() {
     };
     window.__game = game;
     window.__breach = (origin) => game.director && game.director.breach(origin);
-    window.__objective = () => game.objectives.view();
+    window.__objective = () => game.tasks.view();
+    window.__event = (type, origin) => game.events.start(type, { origin });
+    window.__clock = (sec) => {
+      game.director.clock = sec;
+    };
     window.__speed = (n) => {
       simSteps = Math.max(1, Math.min(16, n | 0));
     };
@@ -266,6 +270,7 @@ async function boot() {
       if (input.pause()) {
         pause();
       } else {
+        if (input.cycleTask()) game.tasks.cycleFocus();
         for (let i = 0; i < simSteps; i++) {
           if (i > 0) input.clearEdges();
           game.update(dt, input);
@@ -278,7 +283,7 @@ async function boot() {
         trackerTimer -= dt;
         if (trackerTimer <= 0) {
           trackerTimer = 0.15;
-          ui.setTracker(game.objectives.view());
+          ui.setPager(game.tasks.view());
         }
         updateMarker();
       }

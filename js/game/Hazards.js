@@ -148,6 +148,7 @@ export class Anomaly {
 
   canSee(x, y, z) {
     const w = this.game.world;
+    if (this.game.doorBlocksLine(this.pos.x, this.pos.z, x, z)) return false;
     return w.visible(this.pos.x / VOXEL, this.pos.y / VOXEL, this.pos.z / VOXEL, x / VOXEL, y / VOXEL, z / VOXEL);
   }
 

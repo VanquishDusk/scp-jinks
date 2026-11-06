@@ -238,6 +238,8 @@ export class VoxelWorld {
     const { w, d, blocks } = this;
     for (let steps = 0; steps < 256; steps++) {
       if (x === ex && y === ey && z === ez) return true;
+      // Past the end of the segment (e.g. it grazed a voxel corner): clear.
+      if (Math.min(tmx, tmy, tmz) >= 1) return true;
       if (tmx < tmy && tmx < tmz) {
         x += sx;
         tmx += tdx;

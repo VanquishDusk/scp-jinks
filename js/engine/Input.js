@@ -245,6 +245,11 @@ export class Input {
     );
   }
 
+  /** Switch which pager task is focused. */
+  cycleTask() {
+    return this.keyPressed('Tab') || this.padPressed(PAD.Y);
+  }
+
   pause() {
     return this.keyPressed('Escape') || this.keyPressed('KeyP') || this.padPressed(PAD.START);
   }

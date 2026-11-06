@@ -4,9 +4,10 @@ A single-player, retro voxel **SCP Foundation facility simulation** that runs en
 browser. It uses a low-resolution, dithered, PS2-era look with chunky voxel architecture, baked
 lighting and pixel-art textures that are generated in code.
 
-> **v0.2.0:** two playable classes (Class-D Personnel and Security Guard), a full objective and
-> assignment system with Credits, NPC staff, randomized experiments and duties, and containment
-> breaches that change your objectives mid-shift. The game is silent by design (no audio).
+> **v0.3.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
+> Security Guard). Randomized concurrent tasks with deadlines, random facility events, guards
+> that hunt down Class-D who are out of bounds, Standing, Credits, and many ways to fail.
+> The game is silent by design (no audio).
 
 ## Play
 
@@ -49,77 +50,82 @@ Then open <http://localhost:8000>.
 | Jump                | `Space`                          | `A`                        |
 | Interact            | `E`, `F` or left click           | `X` / `RB`                 |
 | Terminals & repairs | Hold `E`                         | Hold `X`                   |
+| Switch pager task   | `Tab`                            | `Y`                        |
 | Pause               | `Esc` / `P`                      | `Start`                    |
 | Menus               | Arrows/WASD, `Enter`, `Esc`      | D-pad, `A`, `B`            |
 
 Click the game view to capture the mouse. Pressing `Esc` releases it and pauses the game.
 
-## Classes
+## How a shift works
 
-There are exactly two playable classes. Facility staff (researchers, doctors, other guards)
-appear as NPCs.
+There is no story script. Every shift is a randomized sandbox on a 15-minute clock (06:00 to 14:00 site time):
 
-| Class             | Clearance | Starts in             | Shift                                                       |
-|-------------------|-----------|-----------------------|-------------------------------------------------------------|
-| Class-D Personnel | Level 0   | A random D-Block cell | Report for testing, follow the scientist's instructions, survive the experiment, then escape when containment fails |
-| Security Guard    | Level 3   | Security Office       | Patrol, inspect checkpoint logs, escort personnel, handle facility jobs, then respond to the breach, evacuate staff and restore security systems |
+- **Tasks arrive over time** from a weighted random pool, announced over the intercom or radio.
+  Several can be open at once, and you choose the order. Most have deadlines, and the pager shows
+  the countdowns. Press `Tab` (or `Y` on a gamepad) to switch which task the marker points to.
+- **Facility events strike at random times:** a containment breach (from Heavy Containment or
+  Test Chamber 01), a security grid failure, a power failure (heavy doors seal and the site goes
+  dark), or a D-Block riot. Each event changes the facility and brings new tasks or
+  opportunities. If nobody deals with it, the site's response teams eventually resolve it
+  themselves.
+- **Standing:** Compliance for Class-D, Performance for guards. It goes up when you finish tasks
+  and down when you miss deadlines or fail. **At zero you lose:** a Class-D is hunted by every
+  guard, and a guard is dismissed.
+- **Credits** are paid for completed work and bonuses, and taken away for failures. Your total is
+  saved in the browser.
+- The shift ends when you **survive to the end** of the clock, **escape** (Class-D),
+  **die**, are **detained** by guards, are **dismissed**, or are not in your cell at lights out.
 
-## Objectives, assignments and Credits
+Failure is easy: deadlines overlap, guards are fast, and anomalies, floor fields, discharges and
+rioters all hurt you.
 
-Work arrives the way it would on site: over the intercom, on the security radio, or from the
-person standing in front of you. Each **assignment** has a sequence of **objectives**, and every
-objective completes only through gameplay. You reach places, hold E at terminals, pick things up,
-follow or escort NPCs, and survive hazards. Nothing completes by clicking a popup.
+### Class-D Personnel (Level 0)
 
-- **Objective tracker** (top right) shows the current assignment, who gave it, the completed and
-  current objectives, progress such as `2/4` or seconds remaining, checklists and optional side
-  objectives.
-- **Objective marker:** a diamond with the distance to the target. You can turn it off in Settings.
-  Search objectives, such as a dropped keycard, only show the marker when you are close.
-- **Notifications** slide in under the tracker for new assignments, completed objectives,
-  failures and Credit rewards.
-- **Credits** are paid for every objective, plus a completion bonus for each assignment. You can
-  also earn bonuses, for example for a flawless test or for exploring restricted areas. Failing an
-  escort costs Credits. Your Credit total is saved in the browser and shown on the title screen.
+You start in a random cell. You may only be in D-Block (corridor, cells, commons, washroom).
 
-### Class-D shift
+- **Orders** (one at a time, chosen at random) authorize a route for a limited time:
+  - **Testing:** a random experiment in Test Chamber 01 or Laboratory A. It is either a field
+    endurance test, an object retrieval, or a specimen sequence test.
+  - **Work details:** mop a spill (random location), or haul a crate from Storage (you can't sprint
+    while carrying it).
+  - **Headcount, meal time** and a **medical check**.
+  - **Lights out** near the end of the shift.
+- **Guards:** checkpoint guards and two roving patrols on routes that change every shift. If they
+  see you somewhere you are not authorized, they chase you. Break line of sight or get back
+  inside your authorized area to shake them off. If they catch you, the run is over.
+- **Choices during events:** obey the lockdown order and sit it out in your cell, or take the
+  **escape opportunity** while the security grid is down. To escape, find a Level 2 keycard, get
+  through the maintenance access in Storage and climb to the surface. Once the grid comes back,
+  that chance is gone. Some shifts, a careless staff member leaves a keycard lying around, and you
+  might overhear where. A keycard you steal now carries over to the next emergency.
 
-1. The intercom calls your designation for testing. Stand by at your cell door.
-2. A guard escorts you through the facility, opening each door on the route. Follow them to the
-   testing area.
-3. One randomized experiment, run by a scientist over the intercom:
-   - **Field Endurance** (Test Chamber 01): survive 30 s on a floor of panels that warn in amber,
-     then activate in red. You get a bonus if you take no damage.
-   - **Object Retrieval** (Test Chamber 01): carry the anomalous object to the containment
-     receptacle while the floor is active.
-   - **Sequence Response** (Laboratory A): touch the glowing specimens in the announced order. A
-     wrong touch gives you a discharge and resets the sequence. Then hold position in the shielded
-     area through the resonance pulses.
-4. While you are being walked back, a **containment breach** suspends the assignment. Doors up to
-   Level 2 fail open, and your new emergency objectives are to find a dropped Level 2 keycard (its
-   location is randomized), reach the maintenance access in Storage and climb to the surface. An
-   optional side objective pays you for exploring areas that the emergency has opened.
+### Security Guard (Level 3)
 
-### Security Guard shift
+Jobs fill your pager: two at a time early in the shift, then three. They are drawn at random
+from this pool:
 
-1. Chief Mercer tells you to log in at the duty terminal.
-2. **Patrol route** (randomized): four random patrol points, plus two randomly chosen checkpoint
-   log terminals to verify.
-3. Two random facility jobs, issued over the radio:
-   - **VIP Escort:** a researcher with a random origin and destination follows you there.
-   - **Document Delivery:** collect a report from a random office and hand it to a specific person.
-   - **Reader Fault:** reset a random door's malfunctioning reader, then test the door.
-4. A **containment breach** in Heavy Containment or Test Chamber 01 (random) interrupts the
-   shift. You re-engage two randomly chosen containment locks while anomalies roam the area. Then,
-   in random order, you escort sheltering researchers to the evacuation elevator and reboot the
-   security grid in the Server Room.
+- patrol 2–3 random sectors
+- verify a checkpoint log
+- escort a researcher to a random destination
+- hand-deliver a report
+- reset a malfunctioning door reader, then test the door
+- transfer a Class-D subject to testing
 
-### Health and danger
+Events add emergencies on top of these. Handle them before the response teams have to, or the
+emergency counts as failed:
 
-Anomalies and test hazards deal damage, and so do wrong moves in experiments. Health recovers
-slowly on its own, and wall-mounted **first aid stations** heal you. If you are killed, the shift
-ends with a *Terminated* summary. Escaped NPCs board the evacuation elevator. NPCs can also be
-killed, and if a person you are escorting dies, that objective fails.
+- **Breach:** re-engage the containment locks while anomalies roam, evacuate the sheltering
+  researchers, and reboot the grid.
+- **Grid failure:** reboot the grid.
+- **Power failure:** reset the main breaker in Storage, in the dark.
+- **Riot:** order the rioters back to their cells. Get too close and they hit you.
+
+Losing researchers on your watch costs Performance.
+
+### Health
+
+Health recovers slowly, and wall-mounted **first aid stations** heal you faster. The test
+chamber floor, anomalies, specimen discharges, resonance pulses and rioters all deal damage.
 
 ## Project structure
 
@@ -136,13 +142,13 @@ js/
     Input.js               Keyboard, mouse (pointer lock) and gamepad input
   game/
     Game.js                Session: world, player, NPCs, doors, interactables, hazards, events
-    objectives.js          Steps (reach, use, pick up, patrol, escort, follow, timed…), assignments,
-                           ObjectiveManager (tracker data, notifications, Credits)
+    objectives.js          Steps (reach, use, pick up, patrol, escort, timed…), Task, TaskManager
+                           (concurrent tasks, deadlines, pager data, notifications, Credits)
     directors/
-      Director.js          Game-time scripting base (waits, dialogue, abortable scripts, ambient NPCs)
-      ClassDDirector.js    Class-D shift script and the three experiments
-      SecurityDirector.js  Security Guard shift script, randomized jobs and breach response
-    Events.js              Containment breach: door release, anomalies, alarms, recovery
+      Director.js          Shift sandbox: clock, Standing, weighted task pool, event scheduler, NPCs
+      ClassDDirector.js    Class-D orders, experiments, guard detection/pursuit, escape opportunities
+      SecurityDirector.js  Security job pool and emergency responses
+    Events.js              Breach, grid failure, power failure, riot; auto-resolution and alarms
     NPC.js                 Voxel humanoids: walk, open doors, wander, lead, follow, board, die
     NavGrid.js             Walkability grid, A* pathfinding and path smoothing
     Interactables.js       Terminals, pickups, first aid stations, specimen stands, triggers
@@ -160,26 +166,24 @@ js/
     blocks.js, textures.js, doorTextures.js, props.js, signs.js, pixelFont.js
 ```
 
-### Adding objectives
+### Adding tasks and events
 
-Directors write each shift as a script that runs on game time:
+Each director has a `templates` pool:
+`{ weight, cooldown, can(), make() → Task }`. A `Task` is a short chain of steps, all completed by
+gameplay. Each task can have a `deadline`, a `reward`, a `penalty`, a `standing: [gain, loss]`
+pair, and `grants` (zones and doors that a Class-D order temporarily authorizes):
 
 ```js
-await this.say('Chief Mercer', 'Check the HCZ log, officer.', 'radio');
-await this.assign(new Assignment({
-  title: 'Spot Check', giver: 'Chief Mercer', bonus: 50,
-  steps: [
-    new ReachStep({ text: 'Go to the HCZ Checkpoint', zone: 'HEAVY CONTAINMENT ZONE — ENTRANCE', reward: 20 }),
-    new ActionStep({ text: 'Verify the checkpoint log', object: g.terminals.get('log-hcz'),
-                     action: { text: 'Verify log', hold: 2 }, reward: 40 }),
-  ],
-}), gen);
+logCheck: { weight: 3, cooldown: 60, make: () => new Task({
+  title: 'Verify the log at the HCZ Checkpoint', giver: 'Dispatch', deadline: 130,
+  reward: 50, penalty: 20, standing: [5, 8],
+  steps: [new ActionStep({ text: 'Verify the checkpoint log', object: g.terminals.get('log-hcz'),
+                           action: { text: 'Verify log', hold: 2.5 } })],
+}) },
 ```
 
-Gameplay locations, terminals and first aid stations are defined in
-`js/world/facilityLayout.js`. To start a facility event from a script, call
-`director.breach('hcz' | 'research')`. The current assignment is suspended and the director
-switches to its emergency script.
+Events live in `js/game/Events.js` (`start('breach' | 'grid' | 'power' | 'riot')`), and directors
+react to them in `onFacilityEvent`.
 
 ### Debug helpers
 
@@ -187,8 +191,9 @@ When you open the game with `?debug`, the browser console gets these helpers:
 
 - `__debug()`: the current game state.
 - `__tp(x, z, yawDeg)`: teleport, in voxel units.
-- `__breach('hcz' | 'research')`: trigger a breach.
-- `__objective()`: the tracker data.
+- `__event('breach' | 'grid' | 'power' | 'riot', origin?)`: trigger an event.
+- `__clock(seconds)`: jump the shift clock.
+- `__objective()`: the pager data.
 - `__speed(n)`: fast-forward the simulation.
 
 ## Credits & licensing

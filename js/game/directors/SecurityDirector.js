@@ -1,14 +1,17 @@
-// Security Guard shift: log in, walk a randomized patrol and inspect
-// checkpoint logs, then handle randomized facility assignments (VIP escort,
-// document delivery, reader repair). A containment breach interrupts the
-// shift and turns it into breach response, evacuation and grid recovery.
+// Security Guard shift (sandbox).
+//
+// Your pager fills up with jobs drawn at random from a pool — patrols, log
+// checks, VIP escorts, deliveries, reader repairs, Class-D transfers — each
+// with a deadline. Up to three run at once; you decide what to do first and
+// what to let slip. Facility events add emergencies on top: handle them
+// before the response teams have to step in, or it goes on your record.
+// Performance hits zero and you are dismissed. Anomalies and rioters can
+// kill you.
 
-import { Director, shuffle, pick, rand } from './Director.js';
-import { Assignment, ReachStep, ActionStep, PickupStep, PatrolStep, EscortStep, CustomStep } from '../objectives.js';
-import { BREACH_ORIGINS } from '../Events.js';
+import { Director, shuffle, pick, rand, SHIFT_LENGTH } from './Director.js';
+import { Task, ReachStep, ActionStep, PickupStep, PatrolStep, EscortStep, CustomStep, withThe } from '../objectives.js';
 import { Trigger } from '../Interactables.js';
 
-const ROUTES = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Kilo', 'Sierra'];
 const PATROL = [
   'patrol-dblock', 'patrol-commons', 'patrol-cafeteria', 'patrol-storage', 'patrol-hub',
   'patrol-north', 'patrol-research', 'patrol-medical', 'patrol-lobby', 'patrol-breakroom',
@@ -22,177 +25,417 @@ const LOGS = {
 const FAULTY = ['cafeteria', 'medical-bay', 'records-office', 'storage', 'research-office', 'administration', 'break-room', 'kitchen'];
 const CHATTER = [
   ['DISPATCH', 'Unit four, the coffee machine in the break room is down again. Low priority.'],
-  ['DISPATCH', 'Reminder: Class-D headcount discrepancies go to Checkpoint Alpha, not to me.'],
+  ['DISPATCH', 'Reminder: Class-D headcount discrepancies go to Checkpoint Alpha.'],
   ['OFFICER (RADIO)', 'Lobby to dispatch, elevator technicians still have not shown up.'],
   ['DISPATCH', 'Research Wing reports a door cycling on its own. Probably nothing.'],
   ['OFFICER (RADIO)', 'HCZ post, all quiet. Gate is sealed and staying that way.'],
+  ['DISPATCH', 'Whoever parked a cart in the south corridor, move it.'],
 ];
 
 export class SecurityDirector extends Director {
   setup() {
-    const g = this.game;
+    this.standingLabel = 'PERFORMANCE';
+    this.standing = 50;
     this.spawnAmbient();
-    const lind = g.spawnNpc({
-      id: 'sci-lindqvist',
-      name: this.names[0],
-      title: 'Senior Researcher',
-      kind: 'scientist',
-      at: 'vip-laba',
-      chatter: ['Lab A is running sequence trials today.', 'Have you seen my clipboard?'],
-    });
-    const P = (...ids) => ids.map((id) => [this.pt(id).x, this.pt(id).z]);
-    lind.wander(P('vip-laba', 'w-laba', 'w-res-1', 'sci-observation'), [8, 16]);
-    this.chief = g.npcs.get('chief');
-    this.breachAt = rand(420, 560);
+    this.chief = this.game.npcs.get('chief');
+    this.taskGap = 6;
+    this.maxTasks = 2;
+    this.chatter = shuffle(CHATTER);
+    this.chatterAt = rand(60, 120);
+
+    this.templates = {
+      patrol: { weight: 3, cooldown: 90, make: () => this.makePatrol() },
+      checklog: { weight: 3, cooldown: 60, make: () => this.makeLogCheck() },
+      escort: { weight: 2, cooldown: 120, can: () => this.vipCandidates().length > 0, make: () => this.makeEscort() },
+      delivery: { weight: 2, cooldown: 120, make: () => this.makeDelivery() },
+      repair: { weight: 2, cooldown: 100, make: () => this.makeRepair() },
+      transfer: { weight: 2, cooldown: 150, can: () => this.classdCandidates().length > 0 && !this.game.events.busy, make: () => this.makeTransfer() },
+    };
   }
 
   start() {
-    this.begin(this.shift);
-    // Hard upper bound: the breach happens even if the officer dawdles.
-    this.after(this.breachAt, () => this.breach());
-    this.chatterLoop();
-  }
-
-  chatterLoop() {
-    const lines = shuffle(CHATTER);
-    let i = 0;
-    const next = () => {
-      this.after(rand(70, 120), () => {
-        if (this.game.events.state === 'normal' && i < lines.length) {
-          const [who, text] = lines[i++];
-          this.game.say(who, text, 'radio');
-          next();
-        }
-      });
-    };
-    next();
-  }
-
-  breach(originKey) {
-    const g = this.game;
-    if (g.events.state !== 'normal') return;
-    this.om.suspend('Emergency protocol in effect');
-    g.events.triggerBreach(originKey || pick(['hcz', 'research']));
-    this.begin(this.emergency);
-  }
-
-  async shift(gen) {
-    const g = this.game;
-    const chief = this.chief;
-    await this.wait(2.5);
-    chief.faceToward(g.player.pos.x, g.player.pos.z);
-    await this.say(chief.name, `Morning, ${g.designation}. Log in at the duty terminal and pull today's assignments.`);
-
-    const duty = g.terminals.get('duty');
-    await this.assign(
-      new Assignment({
-        title: 'Start of Shift',
-        giver: chief.name,
-        steps: [
-          new ActionStep({
-            text: 'Log in at the duty terminal',
-            detail: 'The duty terminal is on the north wall of the Security Office.',
-            object: duty,
-            action: { text: 'Log in to the duty roster', hold: 1.5 },
-            screen: 'AWAITING LOGIN',
-            doneScreen: 'SHIFT ACTIVE',
-            reward: 20,
-          }),
-        ],
-      }),
-      gen,
-    );
-
-    // Randomized patrol route and checkpoint inspections.
-    const route = pick(ROUTES);
-    const points = shuffle(PATROL).slice(0, 4).map((id) => {
-      const p = this.pt(id);
-      return { x: p.x, z: p.z, r: 2.4, label: p.label };
+    super.start();
+    this.run(async () => {
+      await this.wait(2);
+      this.chief.faceToward(this.game.player.pos.x, this.game.player.pos.z);
+      await this.say(this.chief.name, `Morning, ${this.game.designation}. Jobs come through on your pager — prioritize, and don't let anything slip. It all goes on your record.`);
     });
-    const logs = shuffle(Object.keys(LOGS)).slice(0, 2);
-    await this.say(chief.name, `You're on patrol route ${route}. Check in at every point, and verify the logs at ${LOGS[logs[0]]} and ${LOGS[logs[1]]}.`);
-    await this.assign(
-      new Assignment({
-        title: `Patrol Route ${route}`,
-        giver: chief.name,
-        bonus: 100,
-        steps: [
-          new PatrolStep({
-            text: `Walk patrol route ${route}`,
-            detail: 'Check in at each patrol point, in any order.',
-            points,
-            onVisit: (gm, p) => this.om.award(25, `Patrol point checked: ${p.label}`),
-          }),
-          ...logs.map(
-            (id) =>
-              new ActionStep({
-                text: `Verify the checkpoint log at ${LOGS[id]}`,
-                object: g.terminals.get(id),
-                action: { text: 'Verify checkpoint log', hold: 2.5 },
-                screen: 'LOG REVIEW PENDING',
-                doneScreen: 'LOG VERIFIED',
-                reward: 40,
-              }),
-          ),
-        ],
-      }),
-      gen,
-    );
-
-    // Two randomized facility assignments, each introduced over the radio.
-    const pool = shuffle(['escort', 'delivery', 'repair']).slice(0, 2);
-    for (const task of pool) {
-      await this.wait(rand(6, 12));
-      await this[task](gen);
-    }
-    await this.wait(rand(10, 20));
-    this.breach();
   }
 
-  // ---- Facility assignments --------------------------------------------
-  async escort(gen) {
+  onStandingZero() {
+    this.game.say(this.chief.name, "That's enough. Hand in your badge — you're done here.", 'radio');
+    this.finish('dismissed');
+  }
+
+  tick(dt) {
+    // More jobs pile up as the shift goes on.
+    this.maxTasks = this.clock > 240 ? 3 : 2;
+    const normal = this.tasks.active.filter((t) => t.kind === 'task').length;
+    this.taskGap -= dt;
+    if (this.taskGap <= 0 && normal < this.maxTasks && this.clock < SHIFT_LENGTH - 60) {
+      this.issueRandomTask();
+      this.taskGap = normal < 1 ? rand(12, 22) : rand(30, 65);
+    }
+    if (this.clock > this.chatterAt && this.chatter.length && !this.game.events.busy) {
+      const [who, text] = this.chatter.pop();
+      this.game.say(who, text, 'radio');
+      this.chatterAt = this.clock + rand(80, 150);
+    }
+    // Rioters lash out at officers who get too close.
+    const p = this.game.player;
+    for (const n of this.game.npcs.values()) {
+      if (n.rioting && n.alive && !p.dead && Math.hypot(n.pos.x - p.pos.x, n.pos.z - p.pos.z) < 1.0) p.damage(10 * dt, 'riot');
+    }
+  }
+
+  endOfShift() {
+    this.game.say(this.chief.name, 'Shift is over, officer. Hand over to the night crew.', 'radio');
+    this.finish('complete');
+  }
+
+  // ---- Event reactions -----------------------------------------------------------
+  onFacilityEvent(name, data) {
+    super.onFacilityEvent(name, data);
     const g = this.game;
-    const options = [
-      { npc: 'sci-okafor', from: 'vip-resoff' },
-      { npc: 'sci-vance', from: 'vip-records' },
-      { npc: 'sci-lindqvist', from: 'vip-laba' },
-    ].filter((o) => g.npcs.get(o.npc) && g.npcs.get(o.npc).alive);
-    const choice = pick(options);
-    const npc = g.npcs.get(choice.npc);
-    const from = this.pt(choice.from);
-    const dests = ['dest-admin', 'dest-cafeteria', 'dest-lobby', 'dest-medical', 'dest-hcz'].map((id) => this.pt(id, 2.2));
-    const dest = pick(dests.filter((d) => Math.hypot(d.x - from.x, d.z - from.z) > 15));
-    npc.stop();
-    npc.goTo(from.x, from.z).then(() => npc.idleAt());
-    await this.say('DISPATCH', `${npc.name} needs an escort from the ${from.label} to the ${dest.label}. Pick them up and stay with them.`, 'radio');
-    await this.assign(
-      new Assignment({
-        title: `VIP Escort: ${npc.name}`,
+    if (name === 'start') {
+      if (data.type === 'breach') this.breachTasks(data);
+      else if (data.type === 'grid') this.gridTask();
+      else if (data.type === 'power') this.powerTask();
+      else if (data.type === 'riot') this.riotTask();
+    } else if (name === 'grid-down' && !this.tasks.has('grid')) {
+      this.after(6, () => this.gridTask());
+    } else if (name === 'contained' && !data.byPlayer) {
+      this.failTag('contain', 'MTF had to re-establish containment');
+    } else if (name === 'grid-restored' && !data.byPlayer) {
+      this.failTag('grid', 'Maintenance rebooted the grid without you');
+    } else if (name === 'power-restored' && !data.byPlayer) {
+      this.failTag('power', 'Maintenance restored power without you');
+    } else if (name === 'riot-ended' && !data.byPlayer) {
+      this.failTag('riot', 'The response team had to quell the riot');
+    } else if (name === 'end') {
+      this.tasks.cancel((t) => t.tag === 'evac', 'Evacuation complete');
+      this.releaseGuards();
+    }
+  }
+
+  failTag(tag, why) {
+    for (const t of this.tasks.active) {
+      if (t.tag !== tag) continue;
+      this.tasks.fail(t, 'failed');
+      this.game.ui.toast(why.toUpperCase(), true);
+    }
+  }
+
+  breachTasks(ev) {
+    const g = this.game;
+    const o = ev.originDef;
+    const sheltering = this.shelterResearchers();
+    this.dispatchGuards(this.pt(o.point));
+    const locks = shuffle(o.locks).slice(0, 2).map((id) => g.terminals.get(id));
+    const site = this.pt(o.point);
+    this.run(async () => {
+      await this.wait(3);
+      await this.say(this.chief.name, `All units, breach in ${o.label}! ${g.designation}, re-engage the containment locks before MTF has to come in. Avoid the anomalies.`, 'radio');
+      this.tasks.add(
+        new Task({
+          title: `Contain the breach in ${o.label}`,
+          giver: this.chief.name,
+          kind: 'emergency',
+          tag: 'contain',
+          reward: 200,
+          penalty: 60,
+          standing: [15, 25],
+          steps: [
+            new ReachStep({ text: `Get to ${o.site}`, zone: o.zone, targetFn: () => ({ x: site.x, y: 1.3, z: site.z }) }),
+            new CustomStep({
+              text: 'Re-engage the containment locks',
+              detail: 'Hold the interaction at each lock terminal. Keep away from the anomalies.',
+              onStart: (gm, step) => {
+                step.left = new Set(locks);
+                for (const t of locks) {
+                  t.action = {
+                    text: 'Re-engage containment lock',
+                    hold: 4,
+                    use: () => {
+                      step.left.delete(t);
+                      t.action = null;
+                      t.setStatus('done', 'LOCK ENGAGED');
+                      return { ok: true, message: 'LOCK ENGAGED' };
+                    },
+                  };
+                }
+              },
+              update: (gm, dt, step) => step.left.size === 0,
+              progress: (gm, step) => `${2 - step.left.size}/2 locks`,
+              target: (gm, step) => {
+                let best = null;
+                let bd = Infinity;
+                for (const t of step.left) {
+                  const d = Math.hypot(t.origin.x - gm.player.pos.x, t.origin.z - gm.player.pos.z);
+                  if (d < bd) {
+                    bd = d;
+                    best = t;
+                  }
+                }
+                return best ? { x: best.origin.x, y: best.origin.y + 0.2, z: best.origin.z } : null;
+              },
+              onEnd: (gm, ok, step) => {
+                for (const t of locks) t.action = null;
+              },
+            }),
+          ],
+          onComplete: (gm) => gm.events.secureContainment(true),
+        }),
+      );
+      await this.wait(rand(8, 15));
+      for (const npc of sheltering) {
+        if (!npc.alive) continue;
+        this.evacTask(npc);
+      }
+    });
+  }
+
+  evacTask(npc) {
+    const evac = this.pt('evac', 2.4);
+    const car = this.pt('evac-car');
+    this.game.say('DISPATCH', `${npc.name} is sheltering in the ${npc.shelter.label}. Get them to the evacuation elevator in the lobby.`, 'radio');
+    this.tasks.add(
+      new Task({
+        title: `Evacuate ${npc.name}`,
         giver: 'Dispatch',
-        bonus: 50,
-        penalty: 50,
+        kind: 'emergency',
+        tag: 'evac',
+        reward: 130,
+        penalty: 40,
+        standing: [10, 15],
         steps: [
           new EscortStep({
-            text: `Escort ${npc.name}`,
+            text: `Evacuate ${npc.name}`,
             npc,
-            dest,
-            from: from.label,
-            reward: 150,
-            onMeet: (gm) => gm.say(npc.name, 'Thank you, officer. Lead the way.'),
+            dest: { ...evac, label: 'evacuation elevator' },
+            from: npc.shelter.label,
+            meetText: `Evacuate ${npc.name}`,
+            onMeet: (gm) => gm.say(npc.name, 'Oh thank god. Get me out of here.'),
             onEnd: (gm, ok) => {
-              if (ok) gm.say(npc.name, 'This is me. Appreciated.');
+              if (ok) {
+                npc.board(car.x, car.z);
+                gm.say(npc.name, 'Thank you, officer!');
+              }
             },
           }),
         ],
       }),
-      gen,
     );
   }
 
-  async delivery(gen) {
+  gridTask() {
+    const g = this.game;
+    if (!g.events.gridOffline || this.tasks.has('grid')) return;
+    this.tasks.add(
+      new Task({
+        title: 'Reboot the security grid',
+        giver: this.chief.name,
+        kind: 'emergency',
+        tag: 'grid',
+        reward: 140,
+        penalty: 40,
+        standing: [10, 15],
+        steps: [
+          new ActionStep({
+            text: 'Reboot the grid from Grid Control (Server Room)',
+            object: g.terminals.get('server-reboot'),
+            action: { text: 'Reboot security grid', hold: 6 },
+            alert: true,
+            screen: 'GRID FAILURE',
+            doneScreen: 'GRID ONLINE',
+            onUse: (gm) => {
+              gm.events.restoreSecurity(true);
+              return { ok: true, message: 'SECURITY GRID REBOOTED' };
+            },
+          }),
+        ],
+      }),
+    );
+  }
+
+  powerTask() {
+    const g = this.game;
+    this.tasks.add(
+      new Task({
+        title: 'Restore main power',
+        giver: this.chief.name,
+        kind: 'emergency',
+        tag: 'power',
+        reward: 130,
+        penalty: 40,
+        standing: [10, 15],
+        steps: [
+          new ActionStep({
+            text: 'Reset the main breaker in Storage',
+            detail: 'It is dark. Heavy doors are offline.',
+            object: g.terminals.get('power-main'),
+            action: { text: 'Reset main breaker', hold: 5 },
+            alert: true,
+            screen: 'BREAKER TRIPPED',
+            doneScreen: 'POWER NOMINAL',
+            onUse: (gm) => {
+              gm.events.restorePower(true);
+              return { ok: true, message: 'MAIN POWER RESTORED' };
+            },
+          }),
+        ],
+      }),
+    );
+  }
+
+  riotTask() {
+    const g = this.game;
+    const rioters = g.events.rioters.slice();
+    for (const n of rioters) {
+      n.action = {
+        text: 'Order back to your cell',
+        sub: n.name,
+        use: (gm) => {
+          this.sendToCell(n);
+          gm.say(n.name, pick(['Alright, alright! I am going!', 'Fine. This is not over.', "Don't shoot, I'm going!"]));
+          return { ok: true };
+        },
+      };
+    }
+    this.tasks.add(
+      new Task({
+        title: 'Quell the D-Block riot',
+        giver: this.chief.name,
+        kind: 'emergency',
+        tag: 'riot',
+        reward: 160,
+        penalty: 50,
+        standing: [12, 20],
+        steps: [
+          new CustomStep({
+            text: 'Order the rioting Class-D back to their cells',
+            detail: 'They will hit you if you stand too close for too long.',
+            update: () => rioters.every((n) => !n.rioting || !n.alive),
+            progress: () => `${rioters.filter((n) => !n.rioting || !n.alive).length}/${rioters.length}`,
+            target: (gm) => {
+              let best = null;
+              let bd = Infinity;
+              for (const n of rioters) {
+                if (!n.rioting || !n.alive) continue;
+                const d = Math.hypot(n.pos.x - gm.player.pos.x, n.pos.z - gm.player.pos.z);
+                if (d < bd) {
+                  bd = d;
+                  best = n;
+                }
+              }
+              return best ? { x: best.pos.x, y: 2.1, z: best.pos.z } : null;
+            },
+          }),
+        ],
+        onComplete: (gm) => gm.events.quellRiot(true),
+        onEnd: () => {
+          for (const n of rioters) if (!n.rioting) n.action = null;
+        },
+      }),
+    );
+  }
+
+  // ---- Job pool -----------------------------------------------------------------
+  makePatrol() {
+    const n = 2 + Math.floor(Math.random() * 2);
+    const points = shuffle(PATROL).slice(0, n).map((id) => {
+      const p = this.pt(id);
+      return { x: p.x, z: p.z, r: 2.4, label: p.label };
+    });
+    return new Task({
+      title: `Patrol ${points.length} sectors`,
+      giver: 'Dispatch',
+      channel: 'radio',
+      announce: `Patrol request: sweep ${points.map((p) => p.label).join(', ')}.`,
+      reward: 30 * points.length,
+      penalty: 25,
+      standing: [6, 10],
+      deadline: 70 + points.length * 45,
+      steps: [new PatrolStep({ text: 'Sweep', points })],
+    });
+  }
+
+  makeLogCheck() {
+    const g = this.game;
+    const free = Object.keys(LOGS).filter((id) => !this.tasks.inUse(id));
+    if (!free.length) return null;
+    const id = pick(free);
+    return new Task({
+      title: `Verify the log at ${LOGS[id]}`,
+      giver: 'Dispatch',
+      channel: 'radio',
+      announce: `Log discrepancy flagged at ${LOGS[id]}. Verify it in person.`,
+      reward: 50,
+      penalty: 20,
+      standing: [5, 8],
+      deadline: 130,
+      uses: [id],
+      steps: [
+        new ActionStep({
+          text: `Verify the checkpoint log at ${LOGS[id]}`,
+          object: g.terminals.get(id),
+          action: { text: 'Verify checkpoint log', hold: 2.5 },
+          screen: 'LOG REVIEW PENDING',
+          doneScreen: 'LOG VERIFIED',
+        }),
+      ],
+    });
+  }
+
+  vipCandidates() {
+    return ['sci-okafor', 'sci-vance', 'sci-lindqvist', 'sci-harrow']
+      .map((id) => this.game.npcs.get(id))
+      .filter((n) => n && n.alive && !n.hidden && !this.tasks.inUse(n.id) && !n.shelter);
+  }
+
+  makeEscort() {
+    const npc = pick(this.vipCandidates());
+    const dests = ['dest-admin', 'dest-cafeteria', 'dest-lobby', 'dest-medical', 'dest-hcz'].map((id) => this.pt(id, 2.2));
+    const dest = pick(dests.filter((d) => Math.hypot(d.x - npc.pos.x, d.z - npc.pos.z) > 14));
+    if (!dest) return null;
+    npc.stop();
+    const zone = this.game.world.roomAtWorld(npc.pos.x, 0.7, npc.pos.z);
+    const room = this.game.builder.rooms[zone];
+    const from = room && room.zone ? titleCase(room.zone) : npc.title;
+    return new Task({
+      title: `Escort ${npc.name} to ${withThe(dest.label)}`,
+      giver: 'Dispatch',
+      channel: 'radio',
+      announce: `${npc.name} needs an escort to ${withThe(dest.label)}. They are waiting near ${withThe(from)}.`,
+      reward: 140,
+      penalty: 40,
+      standing: [8, 12],
+      deadline: 210,
+      uses: [npc.id],
+      steps: [
+        new EscortStep({
+          text: `Escort ${npc.name}`,
+          npc,
+          dest,
+          from,
+          onMeet: (gm) => gm.say(npc.name, 'Thank you, officer. Lead the way.'),
+          onEnd: (gm, ok) => {
+            if (ok) gm.say(npc.name, 'This is me. Appreciated.');
+          },
+        }),
+      ],
+      onEnd: (gm, status) => {
+        if (status !== 'complete' && npc.alive && !npc.shelter) npc.idleAt();
+      },
+    });
+  }
+
+  makeDelivery() {
     const g = this.game;
     const src = this.pt(pick(['doc-records', 'doc-admin']));
-    const recipient = pick([this.chief, g.npcs.get('sci-okafor')].filter((n) => n && n.alive));
+    const recipients = [this.chief, g.npcs.get('sci-okafor'), g.npcs.get('doc-reyes')].filter((n) => n && n.alive && !n.hidden && !this.tasks.inUse(n.id));
+    if (!recipients.length) return null;
+    const recipient = pick(recipients);
     const doc = g.addPickup({
       id: 'document',
       kind: 'document',
@@ -200,41 +443,45 @@ export class SecurityDirector extends Director {
       y: 0.5 + src.h,
       z: src.z,
       name: 'Incident Report',
-      onPickup: (gm) => {
-        gm.player.carrying = 'Incident Report';
-        gm.ui.setItem('Carrying: Incident Report');
+      onPickup: (gm) => gm.ui.setItem('Carrying: Incident Report'),
+    });
+    return new Task({
+      title: `Deliver a report to ${recipient.name}`,
+      giver: 'Dispatch',
+      channel: 'radio',
+      announce: `There's an incident report in the ${src.label}. Hand-deliver it to ${recipient.name}.`,
+      reward: 110,
+      penalty: 30,
+      standing: [6, 10],
+      deadline: 200,
+      uses: [recipient.id],
+      steps: [
+        new PickupStep({ text: `Collect the report from the ${src.label}`, item: doc }),
+        new ActionStep({
+          text: `Deliver the report to ${recipient.name}`,
+          object: recipient,
+          action: { text: 'Hand over the incident report', sub: recipient.name },
+          onUse: (gm) => {
+            gm.ui.setItem(null);
+            recipient.faceToward(gm.player.pos.x, gm.player.pos.z);
+            gm.say(recipient.name, 'Finally. Thank you.');
+            return { ok: true, message: 'REPORT DELIVERED' };
+          },
+        }),
+      ],
+      onEnd: (gm, status) => {
+        gm.removeInteractable(doc);
+        if (status !== 'complete') gm.ui.setItem(null);
       },
     });
-    await this.say('DISPATCH', `There's an overnight incident report waiting in the ${src.label}. Hand-deliver it to ${recipient.name}.`, 'radio');
-    await this.assign(
-      new Assignment({
-        title: 'Document Delivery',
-        giver: 'Dispatch',
-        bonus: 40,
-        steps: [
-          new PickupStep({ text: `Collect the incident report from the ${src.label}`, item: doc, reward: 30 }),
-          new ActionStep({
-            text: `Deliver the report to ${recipient.name}`,
-            object: recipient,
-            action: { text: `Hand over the incident report`, sub: recipient.name },
-            reward: 90,
-            onUse: (gm) => {
-              gm.player.carrying = null;
-              gm.ui.setItem(null);
-              recipient.faceToward(gm.player.pos.x, gm.player.pos.z);
-              gm.say(recipient.name, 'Finally. Thank you, officer.');
-              return { ok: true, message: 'REPORT DELIVERED' };
-            },
-          }),
-        ],
-      }),
-      gen,
-    );
   }
 
-  async repair(gen) {
+  makeRepair() {
     const g = this.game;
-    const door = g.doorsById.get(pick(FAULTY));
+    const options = FAULTY.filter((id) => !this.tasks.inUse(id));
+    if (!options.length) return null;
+    const id = pick(options);
+    const door = g.doorsById.get(id);
     door.faulty = true;
     door.close();
     const b = door.buttonBoxes[0];
@@ -248,170 +495,78 @@ export class SecurityDirector extends Director {
         half: [(b[3] - b[0]) / 2 + e, (b[4] - b[1]) / 2 + e, (b[5] - b[2]) / 2 + e],
       }),
     );
-    await this.say('DISPATCH', `Maintenance reports a fault on the ${door.name} door reader. Reset it and confirm the door cycles.`, 'radio');
-    await this.assign(
-      new Assignment({
-        title: `Reader Fault: ${door.name}`,
-        giver: 'Dispatch',
-        bonus: 30,
-        steps: [
-          new ActionStep({
-            text: `Reset the faulty reader on the ${door.name} door`,
-            detail: 'The faulty reader blinks amber.',
-            object: trigger,
-            action: { text: 'Reset door reader', sub: 'Maintenance override', hold: 4 },
-            reward: 90,
-            onUse: () => {
-              door.faulty = false;
-              door.refreshLed();
-              return { ok: true, message: 'READER RESET' };
-            },
-          }),
-          new CustomStep({
-            text: `Test the ${door.name} door`,
-            update: () => door.isOpen,
-            target: () => ({ x: door.origin.x, y: door.origin.y + 1.3, z: door.origin.z }),
-            reward: 30,
-          }),
-        ],
-      }),
-      gen,
-    );
-    g.removeInteractable(trigger);
+    return new Task({
+      title: `Fix the ${door.name} door reader`,
+      giver: 'Dispatch',
+      channel: 'radio',
+      announce: `Maintenance reports a fault on the ${door.name} door reader. Reset it and test the door.`,
+      reward: 120,
+      penalty: 30,
+      standing: [6, 10],
+      deadline: 180,
+      uses: [id],
+      steps: [
+        new ActionStep({
+          text: `Reset the faulty reader on the ${door.name} door`,
+          detail: 'The faulty reader blinks amber.',
+          object: trigger,
+          action: { text: 'Reset door reader', sub: 'Maintenance override', hold: 4 },
+          onUse: () => {
+            door.faulty = false;
+            door.refreshLed();
+            return { ok: true, message: 'READER RESET' };
+          },
+        }),
+        new CustomStep({ text: `Test the ${door.name} door`, update: () => door.isOpen, target: () => ({ x: door.origin.x, y: door.origin.y + 1.3, z: door.origin.z }) }),
+      ],
+      onEnd: (gm) => {
+        gm.removeInteractable(trigger);
+        door.faulty = false;
+        door.refreshLed();
+      },
+    });
   }
 
-  // ---- Emergency --------------------------------------------------------
-  async emergency(gen) {
-    const g = this.game;
-    const o = g.events.originDef;
-    const chief = this.chief;
-    this.shelterResearchers();
-    for (const id of ['guard-booth', 'guard-lobby']) {
-      const n = g.npcs.get(id);
-      if (n && n.alive) {
-        const p = this.pt(id === 'guard-lobby' ? 'evac' : 'patrol-dblock');
-        n.goTo(p.x, p.z, { speed: 3 });
-      }
-    }
-    await this.wait(2);
-    await this.say(chief.name, `All units, containment breach in ${o.label}! ${g.designation}, get to ${o.site} and re-engage the containment locks. Do not engage the anomalies — avoid them.`, 'radio');
-
-    const locks = shuffle(o.locks).slice(0, 2).map((id) => g.terminals.get(id));
-    const site = this.pt(o.point);
-    await this.assign(
-      new Assignment({
-        title: 'Breach Response',
-        giver: chief.name,
-        kind: 'emergency',
-        bonus: 100,
-        steps: [
-          new ReachStep({ text: `Get to ${o.site}`, zone: o.zone, targetFn: () => ({ x: site.x, y: 1.3, z: site.z }), reward: 50 }),
-          ...locks.map(
-            (t, i) =>
-              new ActionStep({
-                text: `Re-engage containment lock ${i === 0 ? 'A' : 'B'}`,
-                detail: 'Hold the interaction until the lock engages. Keep away from the anomalies.',
-                object: t,
-                action: { text: 'Re-engage containment lock', hold: 4 },
-                alert: true,
-                screen: 'LOCK DISENGAGED',
-                doneScreen: 'LOCK ENGAGED',
-                reward: 100,
-              }),
-          ),
-        ],
-        onComplete: (gm) => gm.events.secureContainment(),
-      }),
-      gen,
-    );
-
-    await this.wait(3);
-    for (const task of shuffle(['evacuate', 'restoreGrid'])) {
-      await this.wait(2);
-      await this[task](gen);
-    }
-    await this.wait(2);
-    await this.say(chief.name, 'All sections report secure. Good work out there, officer — that is the end of your shift.', 'radio');
-    g.endShift('complete');
+  classdCandidates() {
+    return [...this.game.npcs.values()].filter((n) => n.kind === 'classd' && n.alive && !n.rioting && !n.hidden && !this.tasks.inUse(n.id));
   }
 
-  async evacuate(gen) {
-    const g = this.game;
-    const people = ['sci-harrow', 'sci-okafor', 'sci-vance', 'sci-lindqvist']
-      .map((id) => g.npcs.get(id))
-      .filter((n) => n && n.alive && n.shelter);
-    const pair = shuffle(people).slice(0, 2);
-    if (!pair.length) return;
-    const evac = this.pt('evac', 2.4);
-    const car = this.pt('evac-car');
-    const where = pair.map((n) => `${n.name} in the ${n.shelter.label}`).join(' and ');
-    await this.say('DISPATCH', `Researchers are sheltering: ${where}. Escort them to the evacuation elevator in the lobby.`, 'radio');
-    await this.assign(
-      new Assignment({
-        title: 'Assist Evacuation',
-        giver: 'Dispatch',
-        kind: 'emergency',
-        bonus: 80,
-        penalty: 60,
-        steps: pair.map(
-          (npc) =>
-            new EscortStep({
-              text: `Evacuate ${npc.name}`,
-              npc,
-              dest: { ...evac, label: 'evacuation elevator' },
-              from: npc.shelter.label,
-              meetText: `Evacuate ${npc.name}`,
-              reward: 120,
-              onMeet: (gm) => gm.say(npc.name, 'Oh thank god. Get me out of here.'),
-              onEnd: (gm, ok) => {
-                if (ok) {
-                  npc.board(car.x, car.z);
-                  gm.say(npc.name, 'Thank you, officer!');
-                }
-              },
-            }),
-        ),
-      }),
-      gen,
-    );
+  makeTransfer() {
+    const npc = pick(this.classdCandidates());
+    const dest = pick([this.pt('tc-hall', 2.2), this.pt('lab-hall', 2.2)]);
+    npc.stop();
+    return new Task({
+      title: `Transfer ${npc.name} to ${dest.label}`,
+      giver: 'Research Department',
+      channel: 'radio',
+      announce: `Research needs subject ${npc.name} at ${dest.label}. Collect them from D-Block.`,
+      reward: 130,
+      penalty: 35,
+      standing: [7, 12],
+      deadline: 240,
+      uses: [npc.id],
+      steps: [
+        new EscortStep({
+          text: `Transfer ${npc.name}`,
+          npc,
+          dest,
+          from: 'D-Block',
+          meetText: `Escort ${npc.name} to testing`,
+          onMeet: (gm) => gm.say(npc.name, pick(['Testing? Again?', "Alright, I'm coming. No need to push.", 'Where are we going?'])),
+        }),
+      ],
+      onEnd: (gm, status) => {
+        if (status === 'complete') {
+          // The subject is handed over and taken in.
+          npc.collidable = false;
+          this.after(4, () => npc.board(dest.x + 2.5, dest.z));
+        } else if (npc.alive) this.sendToCell(npc);
+      },
+    });
   }
+}
 
-  async restoreGrid(gen) {
-    const g = this.game;
-    if (!g.events.gridOffline) return;
-    await this.say(this.chief.name, 'The breach knocked the security grid offline — every reader is failing open. Reboot it from Grid Control in the server room.', 'radio');
-    await this.assign(
-      new Assignment({
-        title: 'Restore Security Systems',
-        giver: this.chief.name,
-        kind: 'emergency',
-        bonus: 60,
-        steps: [
-          new ActionStep({
-            text: 'Reboot the security grid in the Server Room',
-            object: g.terminals.get('server-reboot'),
-            action: { text: 'Reboot security grid', hold: 6 },
-            alert: true,
-            screen: 'GRID FAILURE',
-            doneScreen: 'GRID ONLINE',
-            reward: 120,
-            onUse: (gm) => {
-              gm.events.restoreSecurity();
-              return { ok: true, message: 'SECURITY GRID REBOOTED' };
-            },
-          }),
-          new ActionStep({
-            text: 'Confirm grid status at the duty terminal',
-            object: g.terminals.get('duty'),
-            action: { text: 'Confirm security grid status', hold: 1.5 },
-            screen: 'CONFIRM GRID',
-            doneScreen: 'ALL SYSTEMS NOMINAL',
-            reward: 40,
-          }),
-        ],
-      }),
-      gen,
-    );
-  }
+function titleCase(s) {
+  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 

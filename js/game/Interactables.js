@@ -168,6 +168,15 @@ export class Pickup extends Interactable {
       this.glint.position.set(0.05, 0, 0.02);
       g.add(card, stripe, this.glint);
       mesh = g;
+    } else if (kind === 'crate') {
+      const g = new THREE.Group();
+      const c = new THREE.Color(0xa07a4a).multiply(light);
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.4), new THREE.MeshBasicMaterial({ color: c })));
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.42), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(0.6) }));
+      band.position.y = 0.1;
+      g.add(band);
+      mesh = g;
+      this.half = [0.3, 0.28, 0.25];
     } else if (kind === 'document') {
       const g = new THREE.Group();
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.03, 0.22), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xc8a868).multiply(light) })));

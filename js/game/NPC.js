@@ -160,6 +160,9 @@ export class NPC {
     this.fallT = 0;
     this.chatIdx = 0;
     this.action = null; // { text, sub, use(game) } offered to the player
+    this.busy = false; // responding to an event
+    this.pursuing = false; // chasing the player
+    this.rioting = false;
 
     this.model = buildModel(this.kind, rnd);
     this.model.root.position.copy(this.pos);
@@ -269,6 +272,7 @@ export class NPC {
     this.mode = 'follow';
     this.followTarget = target;
     this.followDist = opts.distance ?? 1.7;
+    this.followSpeed = opts.speed ?? null;
     this.speed = opts.speed ?? Math.max(this.walkSpeed, 2.4);
     this.path = null;
     this.repathTime = 0;
@@ -280,6 +284,7 @@ export class NPC {
     this.stop();
     this.mode = 'wander';
     this.wanderPoints = points;
+    this.lastRoute = points;
     this.wanderPauseRange = pause;
     this.wanderPause = 1 + Math.random() * 4;
   }
@@ -369,8 +374,8 @@ export class NPC {
           this.repathTime = 0.6;
           this.setPath(t.x, t.z);
         }
-        // Hurry when far behind.
-        this.speed = dist > 6 ? 3.2 : Math.max(this.walkSpeed, 2.2);
+        // Hurry when far behind (pursuers always run).
+        this.speed = this.followSpeed ?? (dist > 6 ? 3.2 : Math.max(this.walkSpeed, 2.2));
       } else {
         this.path = null;
         this.faceToward(t.x, t.z);

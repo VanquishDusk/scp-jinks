@@ -27,7 +27,7 @@ export function rand(a, b, rnd = Math.random) {
 }
 
 export const SCIENTISTS = ['Dr. Lindqvist', 'Dr. Harrow', 'Dr. Okafor', 'Dr. Vance', 'Dr. Petrov', 'Dr. Adeyemi', 'Dr. Castellanos', 'Dr. Moreau'];
-export const GUARDS = ['Officer Briggs', 'Officer Kowalski', 'Officer Tanaka', 'Officer Mbeki', 'Officer Ruiz', 'Officer Holt', 'Officer Novak'];
+export const GUARDS = ['Officer Briggs', 'Officer Kowalski', 'Officer Tanaka', 'Officer Mbeki', 'Officer Ruiz', 'Officer Holt', 'Officer Novak', 'Officer Varga', 'Officer Osei', 'Officer Lindgren'];
 
 export const SHIFT_LENGTH = 15 * 60; // seconds of game time (06:00 → 14:00)
 const EVENT_WEIGHTS = { breach: 3, grid: 2, power: 2, riot: 2 };
@@ -275,13 +275,19 @@ export class Director {
     guard('guard-hcz', gn[2], 'guard-hcz', ['Nobody goes past that gate.', 'Long shift. Longer if that gate opens.']);
     guard('guard-lobby', gn[3], 'guard-lobby', ['Lobby is clear.', 'Elevators have been down all week.']);
     // Roving patrols take a different route every shift.
-    const routesA = shuffle(['patrol-dblock', 'patrol-hub', 'w-hub', 'patrol-cafeteria', 'patrol-storage']);
-    const routesB = shuffle(['patrol-hub', 'patrol-research', 'patrol-medical', 'patrol-north', 'patrol-lobby']);
+    const routesA = shuffle(['patrol-dblock', 'patrol-hub', 'w-hub', 'patrol-cafeteria', 'patrol-storage', 'patrol-hczwing']);
+    const routesB = shuffle(['patrol-hub', 'patrol-research', 'patrol-medical', 'patrol-north', 'patrol-lobby', 'patrol-lcz', 'patrol-lcz-east']);
     const pa = guard('guard-patrol-1', gn[4], 'patrol-hub', ['Keep moving.', 'Eyes forward.']);
     const pb = guard('guard-patrol-2', gn[5], 'patrol-research', ['Nothing to see here.', 'Move along.']);
     pa.wander(P(...routesA.slice(0, 4)), [3, 9]);
     pb.wander(P(...routesB.slice(0, 4)), [3, 9]);
     g.spawnNpc({ id: 'chief', name: 'Chief Mercer', title: 'Head of Security', kind: 'guard', at: 'chief', chatter: ['Check your pager, officer.', 'Eyes open.'] });
+    // The containment sectors have their own posts.
+    guard('guard-keter', gn[6], 'guard-keter', ['Keter Sector is Level 4. Turn around.', 'You do not want to go in there.'], { clearance: 4 });
+    guard('guard-keter-post', gn[7], 'guard-keter-post', ['Quiet shift. Keep it that way.', 'Every alarm in here means something.'], { clearance: 4 });
+    guard('guard-lcz', gn[8], 'guard-lcz', ['Light Containment. Mind the cat.', 'Two sweets. Only two. I mean it.'], { clearance: 3 });
+    const lcz = g.spawnNpc({ id: 'sci-lcz', name: n[6], title: 'Containment Researcher', kind: 'scientist', at: 'w-lcz-lab', chatter: ['SCP-914 output logs are a nightmare.', 'Safe class does not mean harmless.'] });
+    lcz.wander(P('w-lcz-1', 'w-lcz-2', 'w-lcz-lab', 'w-lcz-lounge'), [8, 16]);
   }
 
   guards() {

@@ -1,5 +1,5 @@
 // Persistent site profile: Credits, shift statistics and the containment
-// roster (which SCPs the site owns and in which chamber), stored in this
+// roster (which SCPs the site owns), stored in this
 // browser's localStorage. Both playable classes share the same site.
 
 const KEY = 'scp-jinks.profile.v1';
@@ -23,8 +23,8 @@ export class Profile {
     return this.scps.some((s) => s.id === id);
   }
 
-  addScp(id, slot) {
-    this.scps.push({ id, slot, integrity: 100 });
+  addScp(id) {
+    if (!this.owns(id)) this.scps.push({ id, integrity: 100 });
     this.save();
   }
 
@@ -39,7 +39,13 @@ export class Profile {
     try {
       const d = JSON.parse(window.localStorage.getItem(KEY) || '{}');
       for (const k of ['credits', 'shifts', 'escapes', 'terminations']) if (typeof d[k] === 'number') this[k] = d[k];
-      if (Array.isArray(d.scps)) this.scps = d.scps.filter((s) => s && typeof s.id === 'string' && typeof s.slot === 'number');
+      // Older saves stored a chamber slot; every SCP now has its own room.
+      if (Array.isArray(d.scps)) {
+        const seen = new Set();
+        this.scps = d.scps
+          .filter((s) => s && typeof s.id === 'string' && !seen.has(s.id) && seen.add(s.id))
+          .map((s) => ({ id: s.id, integrity: 100 }));
+      }
     } catch {
       /* storage unavailable */
     }

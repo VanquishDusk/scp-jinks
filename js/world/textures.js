@@ -329,6 +329,60 @@ const TILE_DEFS = [
     p.hline(5, [100, 100, 98]);
     p.hline(10, [100, 100, 98]);
   }],
+  // ---- Containment sectors (v0.7) ----
+  ['WALL_STEEL', (p) => {
+    p.fill([112, 116, 122], 5);
+    p.hline(0, [70, 74, 80], 2);
+    p.vline(0, [70, 74, 80], 2);
+    p.hline(1, [140, 144, 150], 2);
+    for (const [x, y] of [[3, 3], [12, 3], [3, 12], [12, 12]]) {
+      p.set(x, y, [168, 172, 178]);
+      p.set(x + 1, y + 1, [60, 62, 66]);
+    }
+    p.speckle(6, [96, 100, 106], 4);
+  }],
+  ['WALL_RUST', (p) => {
+    p.fill([46, 36, 30], 8);
+    p.stain(5, 0.5);
+    p.speckle(18, [88, 52, 30], 10);
+    // corrosion drips
+    for (let k = 0; k < 4; k++) {
+      const x = (p.rand() * TILE) | 0;
+      const len = 4 + ((p.rand() * 10) | 0);
+      for (let y = 0; y < len; y++) p.set(x, y, p.jit([20, 16, 14], 4));
+    }
+  }],
+  ['FLOOR_RUST', (p) => {
+    p.fill([40, 32, 28], 8);
+    p.stain(6, 0.55);
+    p.speckle(14, [70, 44, 28], 8);
+    p.speckle(6, [14, 12, 10], 4);
+  }],
+  ['WALL_PASTEL', (p) => {
+    p.fill([206, 194, 178], 4);
+    p.speckle(8, [192, 180, 164], 3);
+    p.vline(0, [188, 176, 160], 2);
+  }],
+  ['FLOOR_SOFT', (p) => {
+    const cols = [[196, 88, 70], [70, 130, 188], [214, 176, 60], [86, 160, 96]];
+    for (let q = 0; q < 4; q++) p.rect((q % 2) * 8, (q >> 1) * 8, 8, 8, cols[q], 6);
+    p.hline(0, [60, 60, 60], 2);
+    p.vline(0, [60, 60, 60], 2);
+    p.hline(8, [80, 80, 80], 2);
+    p.vline(8, [80, 80, 80], 2);
+  }],
+  ['ACID', (p) => {
+    p.fill([92, 190, 60], 12);
+    p.speckle(16, [170, 240, 120], 10);
+    p.speckle(10, [50, 120, 40], 8);
+  }],
+  ['STRIPE_ORANGE', stripe([214, 120, 40])],
+  ['WALL_PADDED', (p) => {
+    p.fill([214, 212, 200], 4);
+    for (const y of [0, 8]) p.hline(y, [170, 168, 158], 2);
+    for (const x of [0, 8]) p.vline(x, [170, 168, 158], 2);
+    for (const [x, y] of [[4, 4], [12, 4], [4, 12], [12, 12]]) p.set(x, y, [150, 148, 140]);
+  }],
 ];
 
 /** Texture name → atlas index. */

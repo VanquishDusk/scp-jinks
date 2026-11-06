@@ -741,6 +741,7 @@ h2 {
 .shop-item .s-stats span:nth-child(odd) { color: var(--dim); }
 .shop-item .s-desc { font-size: 17px; line-height: 1.15; }
 .shop-item .s-perk { font-size: 16px; color: #9fc7e8; }
+.shop-item .s-house { font-size: 15px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
 .shop-item .s-status { font-size: 20px; text-transform: uppercase; color: #e8d27a; margin-top: 2px; }
 .shop-item.owned .s-status { color: #7fbf7f; }
 .shop-item.poor .s-status, .shop-item.full .s-status { color: #ff7a60; }

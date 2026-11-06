@@ -211,6 +211,30 @@ export class Scp096 {
     this.place();
   }
 
+  install() {}
+  uninstall() {}
+  threats() {
+    return [];
+  }
+
+  get recon() {
+    const e = this;
+    return {
+      mode: 'bag',
+      text: 'Bag SCP-096 — from behind',
+      detail: 'Wait until it is sitting. Approach from behind. If you see its face, you are dead.',
+      actionText: 'Pull the bag over its head',
+      hold: 4,
+      reward: 600, penalty: 100, standing: [25, 25],
+      radio: 'All units, SCP-096 is out! Do NOT look at its face. Wait until it sits down, come up from behind and bag it. Nobody looks at it. Nobody.',
+      target: () => {
+        const fx = -Math.sin(e.yaw);
+        const fz = -Math.cos(e.yaw);
+        return { x: e.pos.x - fx * 1.3, y: e.pos.y + 0.6, z: e.pos.z - fz * 1.3 };
+      },
+    };
+  }
+
   /** World position of its face, used for "did someone see its face". */
   facePoint() {
     this.object.updateMatrixWorld(true);

@@ -63,6 +63,16 @@ export class Player {
     this.closedT = 0;
     this.blinkActive = false; // drains only when it matters (SCP-173 nearby)
     this.shake = 0; // camera shake amplitude (radians)
+    this.resetEffects();
+  }
+
+  /** SCP side effects (all cleared at the start of a shift). */
+  resetEffects() {
+    this.colaT = 0; // SCP-207: faster, tireless
+    this.drownT = 0; // SCP-151: drowning from the inside
+    this.skeletonT = 0; // SCP-005: every lock opens
+    this.handsGone = false; // SCP-330: took a third piece
+    this.inPocket = false; // SCP-106's pocket dimension
   }
 
   /** Blink meter: drains near SCP-173 and forces a blink when empty. */
@@ -133,6 +143,7 @@ export class Player {
     this.keycard = 0;
     this.carrying = null;
     this.deathT = 0;
+    this.resetEffects();
     this.blink = 1;
     this.eyesClosed = false;
     this.closedT = 0;
@@ -201,7 +212,13 @@ export class Player {
   update(dt, input, settings) {
     this.clock += dt;
     // Slow natural recovery after a while without taking damage.
-    if (this.hp < this.maxHp && this.clock - this.lastHurt > 8) this.heal(dt * 1.5);
+    if (this.hp < this.maxHp && this.clock - this.lastHurt > 8 && this.drownT <= 0) this.heal(dt * 1.5);
+    this.colaT = Math.max(0, this.colaT - dt);
+    this.skeletonT = Math.max(0, this.skeletonT - dt);
+    if (this.drownT > 0) {
+      this.drownT = Math.max(0, this.drownT - dt);
+      this.damage(5.5 * dt, 'scp151');
+    }
 
     // --- Look -------------------------------------------------------------
     const look = input.look(dt, settings.get('mouseSens'), settings.get('padSens'));
@@ -244,7 +261,7 @@ export class Player {
     const heavy = this.carrying === 'crate';
     const wantsSprint = input.sprint() && mv.y > 0.3 && !this.crouching && !this.exhausted && !heavy;
     this.sprinting = wantsSprint && moveLen > 0.1;
-    const speed = (this.crouching ? CROUCH_SPEED : this.sprinting ? SPRINT : WALK) * (heavy ? 0.7 : 1);
+    const speed = (this.crouching ? CROUCH_SPEED : this.sprinting ? SPRINT : WALK) * (heavy ? 0.7 : 1) * (this.colaT > 0 ? 1.4 : 1);
     wx *= speed;
     wz *= speed;
 
@@ -254,7 +271,7 @@ export class Player {
     this.vel.z += (wz - this.vel.z) * k;
 
     // --- Stamina ----------------------------------------------------------
-    if (this.sprinting) {
+    if (this.sprinting && this.colaT <= 0) {
       this.stamina = Math.max(0, this.stamina - dt * 0.17);
       this.staminaDelay = 1.0;
       if (this.stamina <= 0) this.exhausted = true;

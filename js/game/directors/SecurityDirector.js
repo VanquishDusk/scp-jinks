@@ -16,6 +16,7 @@ import { CATALOG } from '../scp/catalog.js';
 const PATROL = [
   'patrol-dblock', 'patrol-commons', 'patrol-cafeteria', 'patrol-storage', 'patrol-hub',
   'patrol-north', 'patrol-research', 'patrol-medical', 'patrol-lobby', 'patrol-breakroom',
+  'patrol-hczwing', 'patrol-lcz', 'patrol-lcz-east',
 ];
 const LOGS = {
   'log-alpha': 'Checkpoint Alpha',
@@ -143,7 +144,14 @@ export class SecurityDirector extends Director {
       else if (data.type === 'grid') this.gridTask();
       else if (data.type === 'power') this.powerTask();
       else if (data.type === 'riot') this.riotTask();
-      else if (data.type === 'scp') this.recontainTask(data);
+      else if (data.type === 'scp') {
+        this.recontainTask(data);
+        // Keter Sector clearance for the duration of a Keter emergency.
+        if (CATALOG[data.scp] && CATALOG[data.scp].cls === 'Keter') {
+          this.tempClearance = 4;
+          this.game.ui.toast('EMERGENCY ACCESS: LEVEL 4 GRANTED', false);
+        }
+      }
       if (data.type === 'scp') {
         this.shelterResearchers();
         this.dispatchGuards(this.eventSite(data));
@@ -167,6 +175,7 @@ export class SecurityDirector extends Director {
     } else if (name === 'riot-ended' && !data.byPlayer) {
       this.failTag('riot', 'The response team had to quell the riot');
     } else if (name === 'end') {
+      this.tempClearance = 0;
       this.tasks.cancel((t) => t.tag === 'evac', 'Evacuation complete');
       this.releaseGuards();
     }
@@ -198,7 +207,7 @@ export class SecurityDirector extends Director {
   // ---- Use of force -------------------------------------------------------------
   onAttack(attacker, npc, dmg, killed) {
     const g = this.game;
-    if (attacker !== g.player || this.finished) return;
+    if (attacker !== g.player || this.finished || npc.hostile || npc.zombie) return;
     const now = g.time;
     if (npc.kind === 'classd') {
       if (npc.rioting) {
@@ -333,62 +342,93 @@ export class SecurityDirector extends Director {
     );
   }
 
+  /** Emergency task for a loose SCP, built from the SCP's own recontainment spec. */
   recontainTask(ev) {
     const g = this.game;
     const e = ev.entity;
-    const is173 = e.id === '173';
-    const is096 = e.id === '096';
+    const spec = e.recon;
+    if (!spec) return;
     this.run(async () => {
       await this.wait(2);
-      this.game.say(
-        this.chief.name,
-        is173
-          ? `All units, ${e.name} is loose! Find it, keep your eyes on it, and get it caged. Never let it out of sight — and watch your blinking.`
-          : is096
-            ? `All units, ${e.name} is out! Do NOT look at its face. Wait until it sits down, come up from behind and bag it. Nobody looks at it. Nobody.`
-            : `${e.name} is out of its chamber. Find it and bring it back.`,
-        'radio',
-      );
+      this.game.say(this.chief.name, spec.radio || `${e.name} is out of its chamber. Find it and bring it back.`, 'radio');
+      let step;
+      if (spec.mode === 'terminals') {
+        const terms = spec.terminals.map((id) => g.terminals.get(id)).filter(Boolean);
+        step = new CustomStep({
+          text: spec.text,
+          detail: spec.detail,
+          onStart: () => {
+            for (const t of terms) {
+              t.action = {
+                text: spec.actionText,
+                hold: spec.hold,
+                use: (gm) => {
+                  if (spec.requiresPower && gm.events.powerOut) return { ok: false, message: 'NO POWER — RESTORE MAIN POWER FIRST' };
+                  t.jobDone = e.id;
+                  t.action = null;
+                  t.setStatus('done', e.id === '106' ? 'RECALL ENGAGED' : 'SEGMENT ISOLATED');
+                  return { ok: true, message: e.id === '106' ? 'RECALL PROTOCOL ENGAGED' : 'NETWORK SEGMENT ISOLATED' };
+                },
+              };
+            }
+          },
+          update: (gm) => {
+            if (!gm.events.scpLoose) return true;
+            if (terms.every((t) => t.jobDone === e.id)) {
+              gm.events.recontainScp(true);
+              return true;
+            }
+            return false;
+          },
+          progress: () => `${terms.filter((t) => t.jobDone === e.id).length}/${terms.length}`,
+          target: (gm) => {
+            const left = terms.filter((t) => t.jobDone !== e.id);
+            if (!left.length) return null;
+            const t = left.reduce((a, b) => (Math.hypot(a.origin.x - gm.player.pos.x, a.origin.z - gm.player.pos.z) < Math.hypot(b.origin.x - gm.player.pos.x, b.origin.z - gm.player.pos.z) ? a : b));
+            return { x: t.origin.x, y: t.origin.y + 0.2, z: t.origin.z };
+          },
+          onEnd: () => {
+            for (const t of terms) if (t.jobDone !== e.id) t.action = null;
+          },
+        });
+      } else if (spec.mode === 'auto') {
+        step = new CustomStep({
+          text: spec.text,
+          detail: spec.detail,
+          update: (gm) => !gm.events.scpLoose,
+          target: spec.target,
+        });
+      } else {
+        step = new CustomStep({
+          text: spec.text,
+          detail: spec.detail,
+          onStart: () => {
+            e.action = {
+              text: spec.actionText,
+              hold: spec.hold,
+              use: (gm) => {
+                gm.events.recontainScp(true);
+                return { ok: true, message: `${e.name} RECONTAINED` };
+              },
+            };
+          },
+          update: (gm) => !gm.events.scpLoose,
+          target: spec.target || (() => ({ x: e.pos.x, y: e.pos.y + 2.4, z: e.pos.z })),
+          onEnd: () => {
+            e.action = null;
+          },
+        });
+      }
       this.tasks.add(
         new Task({
           title: `Recontain ${e.name}`,
           giver: this.chief.name,
           kind: 'emergency',
           tag: 'recontain',
-          reward: is096 ? 600 : is173 ? 400 : 150,
-          penalty: is096 ? 100 : is173 ? 80 : 30,
-          standing: [is173 || is096 ? 25 : 10, is173 || is096 ? 25 : 10],
-          steps: [
-            new CustomStep({
-              text: is173 ? 'Cage SCP-173 — stare at it and hold' : is096 ? 'Bag SCP-096 — from behind' : `Return ${e.name} to its chamber`,
-              detail: is173
-                ? 'It only moves when nobody is looking. Blink (Q) only while someone else watches it.'
-                : is096
-                  ? 'Wait until it is sitting. Approach from behind. If you see its face, you are dead.'
-                  : 'It is harmless. Pick it up.',
-              onStart: () => {
-                e.action = {
-                  text: is173 ? 'Secure SCP-173 in a containment cage' : is096 ? 'Pull the bag over its head' : `Carry ${e.name} back to containment`,
-                  hold: is173 ? 3 : is096 ? 4 : 2,
-                  use: (gm) => {
-                    gm.events.recontainScp(true);
-                    return { ok: true, message: `${e.name} RECONTAINED` };
-                  },
-                };
-              },
-              update: (gm) => !gm.events.scpLoose,
-              target: () => {
-                if (!is096) return { x: e.pos.x, y: e.pos.y + 2.4, z: e.pos.z };
-                // Guide the officer to the safe side: behind it.
-                const fx = -Math.sin(e.yaw);
-                const fz = -Math.cos(e.yaw);
-                return { x: e.pos.x - fx * 1.3, y: e.pos.y + 0.6, z: e.pos.z - fz * 1.3 };
-              },
-              onEnd: () => {
-                e.action = null;
-              },
-            }),
-          ],
+          reward: spec.reward,
+          penalty: spec.penalty,
+          standing: spec.standing,
+          steps: [step],
         }),
       );
     });

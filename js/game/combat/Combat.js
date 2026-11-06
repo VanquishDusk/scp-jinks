@@ -109,6 +109,19 @@ export class Combat {
     return null;
   }
 
+  /** Remove a weapon (e.g. fed into SCP-914). Falls back to fists. */
+  take(id) {
+    if (!this.weapons.includes(id) || id === 'fists') return false;
+    this.weapons = this.weapons.filter((w) => w !== id);
+    delete this.ammo[id];
+    if (!this.weapons.some((w) => WEAPONS[w].kind === 'melee')) this.weapons.unshift('fists');
+    if (this.current === id) {
+      this.current = null;
+      this.select(this.weapons[0]);
+    }
+    return true;
+  }
+
   restock() {
     for (const id of this.weapons) {
       const def = WEAPONS[id];
@@ -128,6 +141,7 @@ export class Combat {
   hud() {
     const def = this.def;
     const a = this.ammo[this.current];
+    if (this.game.player.handsGone) return { name: 'NO HANDS', ammo: '', reloading: 0, hit: false };
     return { name: def.name, ammo: a ? `${a.mag} / ${a.reserve}` : '', reloading: this.reloadT > 0 ? 1 - this.reloadT / def.reload : 0, hit: this.hitT > 0 };
   }
 
@@ -161,7 +175,7 @@ export class Combat {
         this.view.reload(def.reload);
       }
 
-      const wantFire = (def.auto ? input.attackHeld() : input.attackPressed()) && p.carrying !== 'crate';
+      const wantFire = (def.auto ? input.attackHeld() : input.attackPressed()) && p.carrying !== 'crate' && !p.handsGone;
       if (wantFire && this.cooldown <= 0 && this.reloadT <= 0) {
         if (def.kind === 'melee') this.playerMelee(def);
         else if (ammo && ammo.mag > 0) this.playerShoot(def, ammo);
@@ -176,7 +190,7 @@ export class Combat {
     }
     this.updateEffects(dt);
     g.world.sampleLight(p.pos.x, p.pos.y + 1.4, p.pos.z, tmpL);
-    this.view.root.visible = !p.dead;
+    this.view.root.visible = !p.dead && !p.handsGone;
     this.view.update(dt, g.camera, p, tmpL);
   }
 
@@ -194,6 +208,7 @@ export class Combat {
     const spread = def.spread * (1 + moving * 0.35) * (p.crouching ? 0.6 : 1);
     this.jitter(dir, spread);
     const origin = cam.position.clone();
+    g.makeNoise(p.pos.x, p.pos.z, 32);
     const hit = this.trace(origin, dir, def.range, p);
     const muzzle = new THREE.Vector3(0.1, -0.07, -0.5).applyQuaternion(cam.quaternion).add(origin);
     this.tracer(muzzle, hit.point, 0xffe08a);
@@ -269,7 +284,10 @@ export class Combat {
     for (const n of g.npcs.values()) if (n.alive && n !== attacker) consider('npc', n, n.pos);
     if (g.player !== attacker && !g.player.dead) consider('player', g.player, g.player.pos);
     for (const a of g.events.anomalies) if (a.alive) consider('anomaly', a, a.pos);
-    for (const e of g.scps.entities.values()) consider('scp', e, e.pos);
+    for (const e of g.scps.entities.values()) {
+      consider('scp', e, e.pos);
+      for (const t of e.threats()) consider('scp', e, t.pos);
+    }
     return best;
   }
 
@@ -326,10 +344,23 @@ export class Combat {
         break;
       }
       case 'scp': {
+        const e = hit.target;
+        if (e.damage && !e.contained) {
+          e.damage(damage * (melee ? 0.35 : 1), attacker, hit.point);
+          this.blood(hit.point, 2);
+          if (byPlayer) this.hitT = 0.15;
+          break;
+        }
         this.spark(hit.point, 0xd0d0c8);
-        if (byPlayer && !this.scpWarned) {
-          this.scpWarned = true;
-          const msg = { '173': 'BULLETS CHIP CONCRETE. IT DOES NOT CARE.', '096': 'IT DOES NOT EVEN FLINCH.', '999': 'IT GIGGLES AND ABSORBS THE ROUND.' }[hit.target.id] || 'NO EFFECT';
+        if (byPlayer && this.scpWarned !== e.id) {
+          this.scpWarned = e.id;
+          const msg = {
+            '173': 'BULLETS CHIP CONCRETE. IT DOES NOT CARE.',
+            '096': 'IT DOES NOT EVEN FLINCH.',
+            '999': 'IT GIGGLES AND ABSORBS THE ROUND.',
+            '914': 'THE ROUND RICOCHETS OFF BRASS GEARS.',
+            '079': 'YOU SHOOT THE MONITOR. THE FACE KEEPS GRINNING.',
+          }[e.id] || 'NO EFFECT';
           g.ui.toast(msg, true);
         }
         break;
@@ -354,7 +385,7 @@ export class Combat {
     const def = WEAPONS[weaponId];
     const fwd = new THREE.Vector3(-Math.sin(npc.yaw), 0, -Math.cos(npc.yaw));
     const muzzle = new THREE.Vector3(npc.pos.x, npc.pos.y + 1.35, npc.pos.z).addScaledVector(fwd, 0.45);
-    const aimY = target === g.player ? target.pos.y + target.height * 0.72 : target.kind ? target.pos.y + 1.2 : target.pos.y;
+    const aimY = target === g.player ? target.pos.y + target.height * 0.72 : target.aimY != null ? target.pos.y + target.aimY : target.kind ? target.pos.y + 1.2 : target.pos.y;
     const aim = new THREE.Vector3(target.pos.x, aimY, target.pos.z);
     const dist = muzzle.distanceTo(aim);
     const dir = aim.sub(muzzle).normalize();
@@ -364,6 +395,7 @@ export class Combat {
       if (g.player.crouching) spread *= 0.85;
     }
     this.jitter(dir, spread);
+    g.makeNoise(npc.pos.x, npc.pos.z, 32);
     const hit = this.trace(muzzle, dir, def.range, npc);
     npc.flashT = 0.06;
     this.tracer(muzzle, hit.point, 0xffd060);

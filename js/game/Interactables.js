@@ -278,8 +278,14 @@ export class FirstAid extends Interactable {
       hold: 1.2,
       use: (game) => {
         if (this.cooldown > 0) return { ok: false, message: 'FIRST AID STATION RESTOCKING' };
-        if (game.player.hp >= game.player.maxHp) return { ok: false, message: 'NO TREATMENT NEEDED' };
+        const drowning = game.player.drownT > 0;
+        if (game.player.hp >= game.player.maxHp && !drowning) return { ok: false, message: 'NO TREATMENT NEEDED' };
         game.player.heal(100);
+        game.player.drownT = 0;
+        if (drowning) {
+          this.cooldown = 45;
+          return { ok: true, message: 'YOU COUGH UP SEAWATER. YOU CAN BREATHE AGAIN.' };
+        }
         this.cooldown = 45;
         return { ok: true, message: 'WOUNDS TREATED' };
       },

@@ -248,8 +248,9 @@ export class Door {
   }
 
   /** Why the door refuses someone with this clearance, or null if allowed. */
-  denyReason(clearance) {
+  denyReason(clearance, skeleton = false) {
     if (this.broken) return 'DOOR DESTROYED — TORN FROM ITS TRACKS';
+    if (skeleton) return this.unpowered ? 'NO POWER — DOOR MOTOR OFFLINE' : null; // SCP-005 opens any lock
     if (this.locked) return this.locked;
     if (this.unpowered) return 'NO POWER — DOOR MOTOR OFFLINE';
     if (this.sealed) return this.sealed;
@@ -336,8 +337,8 @@ export class Door {
   }
 
   /** Attempt to operate the door. Returns { ok, message }. */
-  operate(clearance, playerBox) {
-    const deny = this.denyReason(clearance);
+  operate(clearance, playerBox, skeleton = false) {
+    const deny = this.denyReason(clearance, skeleton);
     if (deny) {
       this.flashLed(0xff2a1a);
       return { ok: false, message: deny };
@@ -360,9 +361,10 @@ export class Door {
     this.flashColor = color;
   }
 
-  promptText(clearance) {
+  promptText(clearance, skeleton = false) {
     const verb = this.isOpen ? 'Close' : 'Open';
     if (this.broken) return { text: `${this.name}`, sub: 'DESTROYED', denied: true };
+    if (skeleton && !this.unpowered) return { text: `${verb} ${this.name}`, sub: 'SCP-005', denied: false };
     if (this.locked) return { text: `${this.name}`, sub: 'LOCKED', denied: true };
     if (this.unpowered) return { text: `${this.name}`, sub: 'NO POWER', denied: true };
     if (this.passes > 0 && clearance < this.clearance) return { text: `${verb} ${this.name}`, sub: 'ROUTE AUTHORIZED', denied: false };
@@ -382,11 +384,11 @@ export class Door {
   }
 
   prompt(game) {
-    return this.promptText(game.clearance);
+    return this.promptText(game.clearance, game.player.skeletonT > 0);
   }
 
   use(game) {
-    const res = this.operate(game.clearance, game.player.aabb());
+    const res = this.operate(game.clearance, game.player.aabb(), game.player.skeletonT > 0);
     return res;
   }
 

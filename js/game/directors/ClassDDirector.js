@@ -254,7 +254,7 @@ export class ClassDDirector extends Director {
   /** Hitting staff makes you hostile; hitting other Class-D only matters if seen. */
   onAttack(attacker, npc, dmg, killed) {
     const g = this.game;
-    if (attacker !== g.player || this.finished) return;
+    if (attacker !== g.player || this.finished || npc.hostile || npc.zombie) return;
     if (npc.kind === 'classd') {
       if (this.isSeen() && !this.playerHostile) {
         const gd = this.guards().find((x) => this.canSee(x, 14));

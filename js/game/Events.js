@@ -50,6 +50,7 @@ export class FacilityEvents {
     this.scpLoose = false;
     this.alarm = 0;
     this.dark = 0;
+    this.flickerT = 0;
     this.time = 0;
     this.count = 0;
     this.listeners = [];
@@ -360,7 +361,9 @@ export class FacilityEvents {
     this.alarm += (alarm - this.alarm) * Math.min(1, dt * 6);
     g.renderer.setAlarm(this.alarm, color);
     // Flickering emergency lighting during power loss.
-    const targetDark = this.powerOut ? 0.72 + (Math.random() < 0.03 ? 0.2 : 0) : 0;
+    this.flickerT = Math.max(0, this.flickerT - dt);
+    let targetDark = this.powerOut ? 0.72 + (Math.random() < 0.03 ? 0.2 : 0) : 0;
+    if (this.flickerT > 0) targetDark = Math.max(targetDark, Math.random() < 0.5 ? 0.85 : 0.2);
     this.dark += (targetDark - this.dark) * Math.min(1, dt * 4);
     g.renderer.setDarkness(this.dark);
 

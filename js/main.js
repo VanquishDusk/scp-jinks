@@ -300,12 +300,13 @@ async function boot() {
     };
     // Instantly own and install an SCP (testing).
     window.__giveScp = (id) => {
-      const slot = game.scps.freeSlot();
-      if (slot === null || profile.owns(id)) return false;
-      profile.addScp(id, slot);
-      game.scps.spawn(id, slot);
+      if (profile.owns(id)) return false;
+      profile.addScp(id);
+      const e = game.scps.spawn(id);
+      if (!e) return false;
       game.scps.integrity.set(id, 100);
-      return slot;
+      game.scps.commission(e.chamber, e);
+      return true;
     };
     window.__resetScps = () => {
       profile.scps = [];

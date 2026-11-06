@@ -7,8 +7,9 @@
 
 import { T } from './textures.js';
 import { B } from './blocks.js';
+import { buildContainment } from './containmentLayout.js';
 
-export const WORLD_SIZE = { w: 180, h: 16, d: 128 };
+export const WORLD_SIZE = { w: 316, h: 16, d: 196 };
 
 export function buildFacility(f) {
   // ===========================================================================
@@ -263,49 +264,10 @@ export function buildFacility(f) {
   f.door({ x: 105, z: 7, axis: 'x', type: 'gate', clearance: 4, name: 'Containment Gate' });
   f.room('HCZ Vestibule', 104, 1, 114, 7, 9, 'hcz', 'HEAVY CONTAINMENT ZONE');
 
-  // ===========================================================================
-  // HEAVY CONTAINMENT WING — six chambers for SCPs the site acquires
-  // ===========================================================================
-  f.room('HCZ Wing Corridor', 123, 13, 176, 19, 8, 'hcz', 'HEAVY CONTAINMENT WING');
-  f.door({ x: 122, z: 14, axis: 'z', type: 'heavy', clearance: 3, name: 'HCZ Wing' });
-  f.sign({ x: 122, y: 7.2, z: 16, face: 'w', lines: ['HEAVY CONTAINMENT WING', 'LEVEL 3'], style: 'red', hazard: true });
-  f.lightRow(127, 15, 175, 15, 8, 'cold', { pattern: ['cold', 'cold', 'off', 'cold', 'red', 'cold', 'cold'] });
-  f.prop('pipe', 123, 13.4, { y: 8.5, opts: { len: 53 * 8 } });
-  f.prop('cctvCam', 123.3, 13.3, { y: 8.4, face: 'e' });
-  f.floorDecal(123, 13, 125, 19, T.HAZARD);
-  let slot = 0;
-  for (const north of [true, false]) {
-    for (const cx of [125, 140, 155]) {
-      slot++;
-      const z0 = north ? 2 : 20;
-      const z1 = north ? 12 : 30;
-      const wallZ = north ? 12 : 19;
-      const name = `Chamber 0${slot}`;
-      f.room(`Containment Chamber 0${slot}`, cx, z0, cx + 12, z1, 8, 'chamber', `CONTAINMENT CHAMBER 0${slot}`);
-      f.door({ x: cx + 4, z: wallZ, axis: 'x', type: 'heavy', clearance: 3, name });
-      f.fill(cx + 9, 3, wallZ, cx + 11, 6, wallZ + 1, B.GLASS);
-      f.light(cx + 5, north ? 6 : 25, 'white', { size: [2, 2] });
-      const face = north ? 's' : 'n';
-      const plane = north ? 13 : 19;
-      f.sign({ x: cx + 6, y: 6.8, z: plane, face, lines: [`CONTAINMENT ${slot}`], style: 'dark' });
-      f.terminal(`chamber-${slot}`, cx + 1.6, 3.6, plane, face, `CHAMBER 0${slot}`);
-      const sz = north ? 5 : 26;
-      f.chambers.push({
-        slot,
-        name,
-        zone: `CONTAINMENT CHAMBER 0${slot}`,
-        door: name.toLowerCase().replace(/\s+/g, '-'),
-        terminal: `chamber-${slot}`,
-        center: [cx + 6, sz],
-        yaw: north ? 180 : 0,
-        outside: [cx + 6, north ? 16 : 16],
-        watch: [cx + 6, north ? 10 : 21.5, north ? 0 : 180],
-        corner: [cx + 1.3, north ? 3.3 : 28.7, north ? 45 : 135], // facing into the far corner
-        tray: [cx + 6.5, north ? 10.6 : 21],
-        spots: [[cx + 2, sz], [cx + 10, sz], [cx + 2.5, north ? 9.5 : 22], [cx + 9.5, north ? 9.5 : 22], [cx + 6, north ? 3 : 28.5]],
-      });
-    }
-  }
+  // The Heavy Containment Wing, Keter Sector and Light Containment Sector
+  // (one purpose-built room per SCP) live in containmentLayout.js.
+  buildContainment(f);
+
   f.light(108, 3, 'red');
   f.floorDecal(104, 8, 114, 10, T.HAZARD);
   f.floorDecal(106, 23, 112, 25, T.HAZARD);
@@ -634,5 +596,6 @@ export function buildFacility(f) {
   f.shot([153, 4, 99], [153, 4, 90], [153, 3.5, 40]);
   f.shot([62, 4.2, 72], [67, 4.2, 72.5], [65, 4, 60]);
   f.shot([126, 3.8, 16], [140, 3.8, 16], [175, 3.5, 16]);
+  f.shot([161, 4, 97], [172, 4, 97], [200, 3.5, 97]);
 
 }

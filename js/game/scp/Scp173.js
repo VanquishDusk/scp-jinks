@@ -128,6 +128,24 @@ export class Scp173 {
     this.mat.color.setRGB(Math.min(1.3, tmp[0] * 1.1 + 0.03), Math.min(1.3, tmp[1] * 1.1 + 0.03), Math.min(1.3, tmp[2] * 1.1 + 0.04));
   }
 
+  install() {}
+  uninstall() {}
+  threats() {
+    return [];
+  }
+
+  get recon() {
+    return {
+      mode: 'cage',
+      text: 'Cage SCP-173 — stare at it and hold',
+      detail: 'It only moves when nobody is looking. Blink (Q) only while someone else watches it.',
+      actionText: 'Secure SCP-173 in a containment cage',
+      hold: 3,
+      reward: 400, penalty: 80, standing: [25, 25],
+      radio: 'All units, SCP-173 is loose! Find it, keep your eyes on it, and get it caged. Never let it out of sight — and watch your blinking.',
+    };
+  }
+
   /** Sample points on the statue used for "is it being looked at". */
   lookPoints() {
     const p = this.pos;

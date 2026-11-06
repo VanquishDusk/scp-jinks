@@ -36,7 +36,7 @@ export class GuardAI {
     this.thinkT = 0;
     this.cage = null; // { by, t }
     this.bag = null;
-    this.fetch = null;
+    this.jobs = new Map(); // SCP id → { by, t, ... } team recontainment jobs
     this.lockJob = null;
     this.squad = [];
     this.squadEvent = null;
@@ -214,6 +214,8 @@ export class GuardAI {
 
     // Who has a reason to fight what.
     const taken = new Set();
+    const scpThreats = scps.threats();
+    const hostiles = [...g.npcs.values()].filter((x) => x.alive && x.hostile);
     for (const n of officers) {
       const ai = this.state(n);
       if (n.stunT > 0) continue;
@@ -224,7 +226,7 @@ export class GuardAI {
       const sees = this.seesPlayer(n, range);
       if (sees) ai.seenPlayerAt = g.time;
       // An armed Class-D is shot on sight.
-      if (classd && sees && !hostile && g.combat.def.kind === 'ranged' && flat(n.pos, g.player.pos) < 20) {
+      if (classd && sees && !hostile && !g.player.handsGone && g.combat.def.kind === 'ranged' && flat(n.pos, g.player.pos) < 20) {
         dir.makeHostile(n, 'armed');
       }
       // A Class-D who lays hands on an officer gets shot (Security friendly fire is handled by the director).
@@ -233,19 +235,21 @@ export class GuardAI {
         this.assign(n, 'engage', g.player);
         continue;
       }
-      // 2. Anomalies.
-      let anomaly = null;
-      let ad = 16;
-      for (const a of g.events.anomalies) {
-        if (!a.alive) continue;
-        const d = flat(n.pos, a.pos);
-        if (d < ad && this.los(n, a.pos.x, a.pos.y, a.pos.z)) {
-          ad = d;
-          anomaly = a;
+      // 2. Anomalies, loose SCPs that bullets affect, SCP-049-2.
+      let threat = null;
+      let td = 18;
+      const consider = (t, y) => {
+        const d = flat(n.pos, t.pos);
+        if (d < td && this.los(n, t.pos.x, y, t.pos.z)) {
+          td = d;
+          threat = t;
         }
-      }
-      if (anomaly) {
-        this.assign(n, 'engage', anomaly);
+      };
+      for (const a of g.events.anomalies) if (a.alive) consider(a, a.pos.y);
+      for (const t of scpThreats) consider(t, t.pos.y + (t.aimY || 1));
+      for (const z of hostiles) consider(z, z.pos.y + 1.2);
+      if (threat) {
+        this.assign(n, 'engage', threat);
         continue;
       }
       if (ai.job === 'engage') this.release(n);
@@ -260,13 +264,24 @@ export class GuardAI {
     const s173 = scps.entities.get('173');
     this.handle173(s173 && !s173.contained ? s173 : null, officers, free, taken);
 
-    // 4. SCP-096.
+    // 4. Eyes on the floor near anything you must not look at; SCP-096.
+    this.handleGaze(officers);
     const s096 = scps.entities.get('096');
     this.handle096(s096 || null, officers, free, taken);
 
-    // 5. SCP-999 wandering the halls.
-    const s999 = scps.entities.get('999');
-    this.handleFetch(s999 && !s999.contained ? s999 : null, officers, free, taken);
+    // 5. Every other loose SCP, by how it is recontained.
+    for (const e of scps.entities.values()) {
+      if (e.contained || !e.recon) {
+        this.jobs.delete(e.id);
+        continue;
+      }
+      const mode = e.recon.mode;
+      if (mode === 'carry') this.teamJob(e, officers, free, taken, { job: 'fetch', reach: 1.2, hold: 2.5, speed: 2.2, say: `Got ${e.name}. Taking it home.` });
+      else if (mode === 'escort') this.teamJob(e, officers, free, taken, { job: 'escort', reach: 1.6, hold: 3, speed: 2.4, ready: () => e.stunT > 0.4, wait: 5, say: 'SCP-049 is compliant. Walking it back.' });
+      else if (mode === 'subdue') this.teamJob(e, officers, free, taken, { job: 'restrain', reach: 2.4, hold: 5, speed: 3, ready: () => e.state === 'down', wait: 10, say: 'Restraints on! Get it back in the acid!' });
+      else if (mode === 'cover') this.teamJob(e, officers, free, taken, { job: 'cover', reach: 1.3, hold: 3.5, speed: 1.6, eyesDown: true, say: 'Case closed. Nobody look at it.' });
+      else if (mode === 'terminals') this.handleTerminals(e, officers, free, taken);
+    }
 
     // 6. Riots.
     this.handleRiot(officers, free, taken);
@@ -316,7 +331,8 @@ export class GuardAI {
     if (this.thinkT === THINK) {
       ai.canShoot = this.clearShot(n, t);
       const maxRange = n.weapon === 'rifle' ? 30 : 22;
-      if (t.dissipate && d < 4.5) {
+      const keep = t.keepAway ?? (t.dissipate ? 4.5 : 0);
+      if (keep && d < keep) {
         // Too close to an anomaly: back off while shooting.
         const ax = (n.pos.x - t.pos.x) / (d || 1);
         const az = (n.pos.z - t.pos.z) / (d || 1);
@@ -353,6 +369,8 @@ export class GuardAI {
     }
     if (t === g.player) this.callout(n, 'fire', g.role.id === 'classd' ? ['Armed Class-D! Open fire!', 'Drop it! Drop it now!', 'Hostile D-class, engaging!'] : ['Rogue officer! Take them down!', 'Traitor! Weapons free!'], 15);
     else if (t.dissipate) this.callout(n, 'anomaly', ['Contact! Anomaly!', 'Engaging the anomaly!', 'Keep shooting, it is breaking up!'], 14);
+    else if (t.scp) this.callout(n, `scp-${t.scp.id}`, [`Contact, ${t.scp.name}! Open fire!`, `Engaging ${t.scp.name}!`, 'Keep it back! Keep shooting!'], 16);
+    else if (t.zombie) this.callout(n, 'zombie', ['049-2 instance! Put it down!', 'That is not a person any more — fire!'], 16);
   }
 
   // ---- SCP-173 -----------------------------------------------------------------------
@@ -466,21 +484,8 @@ export class GuardAI {
   handle096(e, officers, free, taken) {
     const g = this.g;
     if (!e) {
-      for (const n of officers) n.eyesDown = false;
       this.bag = null;
       return;
-    }
-    // Eyes-down protocol near it (and anywhere near it once it is loose).
-    for (const n of officers) {
-      const ai = this.state(n);
-      const d = flat(n.pos, e.pos);
-      const near = d < (e.contained ? 7 : 30);
-      if (!near) {
-        n.eyesDown = false;
-        continue;
-      }
-      if (n.eyesDown && ai.glanceT <= 0 && !e.raging && Math.random() < (1 - ai.discipline) * THINK * 0.5) ai.glanceT = 0.6;
-      n.eyesDown = ai.glanceT <= 0;
     }
     if (e.state === 'charge') {
       // You can hear it coming: officers in its path throw themselves aside.
@@ -546,29 +551,110 @@ export class GuardAI {
     }
   }
 
-  // ---- SCP-999 ------------------------------------------------------------------------
-  handleFetch(e, officers, free, taken) {
-    if (!e) {
-      this.fetch = null;
+  /** Eyes-down protocol near SCP-096 and an exposed SCP-012 (rare, risky glances). */
+  handleGaze(officers) {
+    const hazards = this.g.scps.gazeHazards();
+    for (const n of officers) {
+      const ai = this.state(n);
+      const h = hazards.find((z) => flat(n.pos, z.e.pos) < z.r);
+      if (!h) {
+        n.eyesDown = false;
+        continue;
+      }
+      if (n.eyesDown && ai.glanceT <= 0 && !h.e.raging && ai.job !== 'cover' && Math.random() < (1 - ai.discipline) * THINK * 0.5) ai.glanceT = 0.6;
+      n.eyesDown = ai.glanceT <= 0;
+    }
+  }
+
+  /**
+   * One officer walks up to a loose SCP and, once `ready`, holds an action for
+   * `hold` seconds to recontain it (fetch, escort, restrain, cover).
+   */
+  teamJob(e, officers, free, taken, o) {
+    let job = this.jobs.get(e.id);
+    if (job && (!job.by.alive || !free(job.by))) job = null;
+    if (!job) {
+      const list = officers.filter(free).sort((a, b) => (b.mtf - a.mtf) || flat(a.pos, e.pos) - flat(b.pos, e.pos));
+      if (!list.length) return;
+      job = { by: list[0], t: 0 };
+      this.jobs.set(e.id, job);
+    }
+    const n = job.by;
+    this.assign(n, o.job, e);
+    taken.add(n);
+    if (o.eyesDown) {
+      n.eyesDown = true;
+      this.state(n).glanceT = 0;
+    }
+    const ready = !o.ready || o.ready();
+    const d = flat(n.pos, e.pos);
+    // Not ready yet (it is still fighting): hang back and let the shooters work.
+    if (!ready) {
+      job.t = 0;
+      if (d < (o.wait || 0)) {
+        this.halt(n);
+        n.lookAt = e;
+      } else this.moveTo(n, e.pos.x, e.pos.z, o.speed, 1);
       return;
     }
-    if (this.fetch && (!this.fetch.by.alive || !free(this.fetch.by))) this.fetch = null;
-    if (!this.fetch) {
-      const list = officers.filter(free).sort((a, b) => flat(a.pos, e.pos) - flat(b.pos, e.pos));
-      if (!list.length) return;
-      this.fetch = { by: list[0], t: 0 };
+    if (d > o.reach) {
+      this.moveTo(n, e.pos.x, e.pos.z, o.speed + 0.8, 0.6);
+      return;
     }
-    const n = this.fetch.by;
-    this.assign(n, 'fetch', e);
+    this.halt(n);
+    n.faceToward(e.pos.x, e.pos.z);
+    job.t += THINK;
+    if (job.t >= o.hold) {
+      this.callout(n, `done-${e.id}`, o.say, 5);
+      this.jobs.delete(e.id);
+      this.recontain(e);
+    }
+  }
+
+  /** Recontainment that happens at terminals (SCP-079 isolation, SCP-106 recall). */
+  handleTerminals(e, officers, free, taken) {
+    const g = this.g;
+    const spec = e.recon;
+    const ev = g.events.current;
+    if (spec.requiresPower && g.events.powerOut) return;
+    // A Security player gets first go at it.
+    if (g.tasks.has('recontain') && ev && ev.t < 90) return;
+    let job = this.jobs.get(e.id);
+    if (!job) {
+      job = { by: null, t: 0 };
+      this.jobs.set(e.id, job);
+    }
+    const left = spec.terminals.map((id) => g.terminals.get(id)).filter((t) => t && t.jobDone !== e.id);
+    if (!left.length) {
+      this.jobs.delete(e.id);
+      this.recontain(e);
+      return;
+    }
+    if (job.by && (!job.by.alive || !free(job.by))) job.by = null;
+    if (!job.by) {
+      const t0 = left[0];
+      const list = officers.filter(free).sort((a, b) => flat(a.pos, t0.origin) - flat(b.pos, t0.origin));
+      if (!list.length) return;
+      job.by = list[0];
+      this.callout(job.by, `term-${e.id}`, e.id === '106' ? 'Heading for the recall terminal. Keep it busy!' : 'I will cut the network segments. Cover me.', 30);
+    }
+    const n = job.by;
+    this.assign(n, 'terminals', null);
     taken.add(n);
-    if (flat(n.pos, e.pos) > 1.2) this.moveTo(n, e.pos.x, e.pos.z, 2.2, 1);
+    const t = left.reduce((a, b) => (flat(a.origin, n.pos) < flat(b.origin, n.pos) ? a : b));
+    const fn = FACE_N[t.face] || [0, 0, 1];
+    const sx = t.origin.x + fn[0] * 0.8;
+    const sz = t.origin.z + fn[2] * 0.8;
+    if (Math.hypot(n.pos.x - sx, n.pos.z - sz) > 0.6) this.moveTo(n, sx, sz, 2.8, 1);
     else {
       this.halt(n);
-      this.fetch.t += THINK;
-      if (this.fetch.t > 2.5) {
-        this.callout(n, '999', 'Got the little guy. Taking it home.', 5);
-        this.fetch = null;
-        this.recontain(e);
+      n.faceToward(t.origin.x, t.origin.z);
+      job.t += THINK;
+      if (job.t >= spec.hold + 1) {
+        job.t = 0;
+        t.jobDone = e.id;
+        t.action = null;
+        t.setStatus('done', e.id === '106' ? 'RECALL ENGAGED' : 'SEGMENT ISOLATED');
       }
     }
   }
@@ -682,7 +768,7 @@ export class GuardAI {
   handleSquad() {
     const g = this.g;
     const ev = g.events.current;
-    const dangerous = ev && ((ev.type === 'breach' && !g.events.contained) || (ev.type === 'scp' && g.events.scpLoose && ['173', '096'].includes(ev.scp)));
+    const dangerous = ev && ((ev.type === 'breach' && !g.events.contained) || (ev.type === 'scp' && g.events.scpLoose && ['173', '096', '049', '012', '939', '106', '682'].includes(ev.scp)));
     if (dangerous && this.squadEvent !== ev && ev.t > 40) {
       this.squadEvent = ev;
       this.spawnSquad();

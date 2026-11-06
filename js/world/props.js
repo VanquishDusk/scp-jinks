@@ -540,6 +540,154 @@ export const PROPS = {
     return { boxes: b, collide: false };
   },
 
+  // ---- Construction site (containment rooms not yet commissioned) ----------
+  scaffold() {
+    const b = [];
+    const P = 0xb0a040;
+    for (const x of [-14, 13]) for (const z of [-7, 6]) b.push([x, 0, z, x + 1, 44, z + 1, P]);
+    for (const y of [0, 15, 30, 43]) {
+      b.push([-14, y, -7, 14, y + 1, -6, P]);
+      b.push([-14, y, 6, 14, y + 1, 7, P]);
+      b.push([-14, y, -7, -13, y + 1, 7, P]);
+      b.push([13, y, -7, 14, y + 1, 7, P]);
+    }
+    b.push([-14, 30, -7, 14, 31, 7, 0x8a6c42]); // plank deck
+    b.push([-14, 15, -2, 14, 16, 2, 0x8a6c42]);
+    return { boxes: b };
+  },
+
+  tarp(o, rnd) {
+    const c = rnd() < 0.5 ? 0x3a5a8a : 0x4a6a4a;
+    return {
+      boxes: [
+        [-9, 0, -7, 9, 9, 7, c],
+        [-7, 9, -5, 7, 12, 5, c],
+        [-9.5, 0, -7.5, -8, 6, -6, 0x2a2a2a],
+        [8, 0, 6, 9.5, 6, 7.5, 0x2a2a2a],
+      ],
+    };
+  },
+
+  workLight() {
+    return {
+      boxes: [
+        [-4, 0, -0.5, 4, 0.8, 0.5, C.dark],
+        [-0.5, 0, -4, 0.5, 0.8, 4, C.dark],
+        [-0.5, 0, -0.5, 0.5, 26, 0.5, C.metal],
+        [-3, 24, -2, 3, 29, 1, 0xc8a030],
+        [-2.5, 24.5, -2.2, 2.5, 28.5, -2, 0xfff4c0, true],
+      ],
+      colliders: [[-1, 0, -1, 1, 26, 1]],
+    };
+  },
+
+  cementBags() {
+    const b = [];
+    for (let i = 0; i < 3; i++) b.push([-8 + i * 5.5, 0, -4, -3 + i * 5.5, 4, 4, 0xb8b4a8]);
+    b.push([-5, 4, -4, 0, 8, 4, 0xa8a498]);
+    b.push([0.5, 4, -4, 5.5, 8, 4, 0xb0ac9e]);
+    return { boxes: b };
+  },
+
+  // ---- Containment furniture ------------------------------------------------
+  cot() {
+    return {
+      boxes: [
+        ...legs4(-7, -15, 7, 15, 6, C.metal),
+        [-7, 6, -15, 7, 7, 15, C.metal],
+        [-6, 7, -14, 6, 9.5, 14, 0xd8d4c8],
+        [-5, 9.5, -13, 5, 11, -9, 0xe8e4d8],
+      ],
+    };
+  },
+
+  bookcase(o, rnd) {
+    const b = [[-10, 0, -4, 10, 34, 4, C.woodDark]];
+    for (const y of [1, 9, 17, 25]) {
+      b.push([-9, y, -4.2, 9, y + 0.8, 3, C.wood]);
+      let x = -9;
+      while (x < 8) {
+        const w = 1 + Math.floor(rnd() * 2.5);
+        const h = 5 + Math.floor(rnd() * 2);
+        const c = [0x6a2a24, 0x2a4a6a, 0x3a5a3a, 0x8a7a4a, 0x4a3a5a][Math.floor(rnd() * 5)];
+        b.push([x, y + 0.8, -4.3, Math.min(9, x + w), y + 0.8 + h, 2, c]);
+        x += w + 0.2;
+      }
+    }
+    return { boxes: b };
+  },
+
+  compositionCase() {
+    return {
+      boxes: [
+        [-6, 0, -5, 6, 14, 5, C.metalDark],
+        [-6.5, 14, -5.5, 6.5, 15, 5.5, C.metal],
+        // sloped music stand with the sheet
+        [-5, 15, -2, 5, 22, -1, 0x2a2420],
+        [-4.2, 15.6, -2.3, 4.2, 21.4, -2.05, 0xe4dcc0],
+        [-3.5, 17, -2.4, 3.5, 17.3, -2.3, 0x6a1a14],
+        [-3.5, 18.5, -2.4, 3.5, 18.8, -2.3, 0x6a1a14],
+        [-3.5, 20, -2.4, 2, 20.3, -2.3, 0x6a1a14],
+      ],
+    };
+  },
+
+  oldComputer() {
+    return {
+      boxes: [
+        ...legs4(-12, -6, 12, 6, 12, C.woodDark),
+        [-12, 12, -6, 12, 13, 6, C.wood],
+        [-7, 13, -3, 7, 16, 4, C.beige], // base unit
+        [-5, 16, -2, 5, 25, 5, C.beige], // monitor
+        [-4, 17, -2.2, 4, 24, -2, 0x200808, true],
+        [-6, 13, -6, 6, 13.8, -3.5, 0xb8b0a0], // keyboard
+        [-11, 13, -1, -8, 19, 4, 0x6a6e76], // tape drive
+        [-10.6, 15, -1.2, -8.4, 17.5, -1, 0x202020],
+      ],
+    };
+  },
+
+  toyBlocks(o, rnd) {
+    const b = [];
+    const cols = [0xc84838, 0x3870c0, 0xd8b030, 0x48a050, 0xe07ab0];
+    for (let i = 0; i < 9; i++) {
+      const x = -10 + rnd() * 18;
+      const z = -8 + rnd() * 14;
+      const y = i > 5 ? 4 : 0;
+      b.push([x, y, z, x + 4, y + 4, z + 4, cols[i % cols.length]]);
+    }
+    return { boxes: b, collide: false };
+  },
+
+  beanbag(o) {
+    const c = o.color || 0xc86a30;
+    return { boxes: [[-7, 0, -7, 7, 5, 7, c], [-5, 5, -2, 5, 9, 7, c]] };
+  },
+
+  catBed() {
+    return {
+      boxes: [
+        [-6, 0, -6, 6, 2, 6, 0x8a5a7a],
+        [-6, 2, -6, 6, 4, -4.5, 0x9a6a8a],
+        [-6, 2, 4.5, 6, 4, 6, 0x9a6a8a],
+        [-6, 2, -6, -4.5, 4, 6, 0x9a6a8a],
+        [4.5, 2, -6, 6, 4, 6, 0x9a6a8a],
+        [-4.5, 2, -4.5, 4.5, 2.6, 4.5, 0xd8c8b8],
+      ],
+      collide: false,
+    };
+  },
+
+  scratchPost() {
+    return {
+      boxes: [
+        [-5, 0, -5, 5, 1.5, 5, 0xb8a888],
+        [-1.5, 1.5, -1.5, 1.5, 18, 1.5, 0xc8b088],
+        [-4, 18, -4, 4, 19.5, 4, 0xb8a888],
+      ],
+    };
+  },
+
   showerHead() {
     return {
       boxes: [

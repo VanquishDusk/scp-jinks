@@ -21,6 +21,9 @@ export const BLOCKS = [
   { name: 'light_warm', solid: true, opaque: true, tex: T.LIGHT_WARM, emissive: [1.2, 1.12, 0.98] },
   { name: 'light_blue', solid: true, opaque: true, tex: T.LIGHT_BLUE, emissive: [1.1, 1.18, 1.3] },
   { name: 'light_off', solid: true, opaque: true, tex: T.LIGHT_OFF },
+  { name: 'acid', solid: true, opaque: true, tex: T.ACID, emissive: [0.75, 0.95, 0.6] },
+  { name: 'steel', solid: true, opaque: true, tex: T.WALL_STEEL },
+  { name: 'rust', solid: true, opaque: true, tex: T.WALL_RUST },
 ];
 
 export const B = Object.fromEntries(BLOCKS.map((b, i) => [b.name.toUpperCase(), i]));
@@ -134,6 +137,47 @@ export const STYLES = {
     floor: T.FLOOR_CONCRETE, ceiling: T.CEIL_CONCRETE,
     base: T.HAZARD, lower: T.CONCRETE, stripe: T.STRIPE_RED, upper: T.CONCRETE,
     lowerTop: 2, stripeY: 5,
+  },
+  // ---- Containment sectors -----------------------------------------------
+  steel: {
+    floor: T.FLOOR_METAL, ceiling: T.METAL_DARK,
+    base: T.WALL_STEEL, lower: T.WALL_STEEL, stripe: T.WALL_STEEL, upper: T.WALL_STEEL,
+    lowerTop: 99, stripeY: 0,
+  },
+  keter: {
+    floor: T.FLOOR_GRATE, ceiling: T.CEIL_METAL,
+    base: T.HAZARD, lower: T.WALL_STEEL, stripe: T.STRIPE_RED, upper: T.CONCRETE,
+    lowerTop: 2, stripeY: 3,
+  },
+  keterCell: {
+    floor: T.FLOOR_METAL, ceiling: T.METAL_DARK,
+    base: T.HAZARD, lower: T.WALL_STEEL, stripe: T.STRIPE_RED, upper: T.WALL_STEEL,
+    lowerTop: 3, stripeY: 6,
+  },
+  lcz: {
+    floor: T.FLOOR_TILE, ceiling: T.CEIL_TILE,
+    base: T.WALL_BASE, lower: T.WALL_LAB, stripe: T.STRIPE_ORANGE, upper: T.WALL_WHITE,
+    lowerTop: 2, stripeY: 3,
+  },
+  safe: {
+    floor: T.FLOOR_LAB, ceiling: T.CEIL_TILE,
+    base: T.WALL_BASE, lower: T.WALL_LAB, stripe: T.STRIPE_GREEN, upper: T.WALL_LAB,
+    lowerTop: 2, stripeY: 4,
+  },
+  nursery: {
+    floor: T.FLOOR_SOFT, ceiling: T.CEIL_TILE,
+    base: T.WALL_BASE, lower: T.WALL_PASTEL, stripe: T.STRIPE_ORANGE, upper: T.WALL_PASTEL,
+    lowerTop: 2, stripeY: 3,
+  },
+  padded: {
+    floor: T.FLOOR_CARPET, ceiling: T.CEIL_TILE,
+    base: T.WALL_BASE, lower: T.WALL_PADDED, stripe: T.WALL_PADDED, upper: T.WALL_PADDED,
+    lowerTop: 99, stripeY: 0,
+  },
+  pocket: {
+    floor: T.FLOOR_RUST, ceiling: T.WALL_RUST,
+    base: T.WALL_RUST, lower: T.WALL_RUST, stripe: T.WALL_RUST, upper: T.WALL_RUST,
+    lowerTop: 99, stripeY: 0,
   },
   breakroom: {
     floor: T.FLOOR_CARPET, ceiling: T.CEIL_TILE,

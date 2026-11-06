@@ -661,12 +661,12 @@ export class UI {
       : 'Contained SCPs pay research grants every minute. Dangerous ones decay faster: schedule containment checks.';
     const list = this.el.shopList;
     list.innerHTML = '';
-    const statusText = { owned: 'In containment', buy: 'Purchase', poor: 'Not enough credits', full: 'No free chamber' };
+    const statusText = { owned: 'In containment', buy: 'Purchase', poor: 'Not enough credits' };
     for (const it of items) {
       const div = document.createElement('div');
       div.className = `item shop-item ${it.status}`;
       if (it.status === 'buy') div.dataset.buy = it.id;
-      const risk = '■'.repeat(it.risk) + '□'.repeat(Math.max(0, 5 - it.risk));
+      const risk = it.risk ? '■'.repeat(it.risk) + '□'.repeat(Math.max(0, 10 - it.risk)) : 'NEVER BREACHES';
       div.innerHTML = `
         <div class="s-name"></div><div class="s-nick"></div><div class="s-class"></div>
         <div class="s-stats">
@@ -676,7 +676,7 @@ export class UI {
           ${it.integrity !== null ? '<span>Integrity</span><span class="s-integ"></span>' : ''}
         </div>
         ${it.imageNote ? '<div class="s-photo"></div>' : ''}
-        <div class="s-desc"></div><div class="s-perk"></div><div class="s-status"></div>`;
+        <div class="s-desc"></div><div class="s-perk"></div><div class="s-house"></div><div class="s-status"></div>`;
       if (it.imageNote) div.querySelector('.s-photo').textContent = it.imageNote;
       div.querySelector('.s-name').textContent = it.name;
       div.querySelector('.s-nick').textContent = `"${it.nick}"`;
@@ -689,6 +689,7 @@ export class UI {
       if (it.integrity !== null) div.querySelector('.s-integ').textContent = `${it.integrity}%`;
       div.querySelector('.s-desc').textContent = it.desc;
       div.querySelector('.s-perk').textContent = it.perk;
+      div.querySelector('.s-house').textContent = `Housing: ${it.housing || it.sector}`;
       div.querySelector('.s-status').textContent = statusText[it.status];
       list.appendChild(div);
     }
@@ -862,7 +863,10 @@ export class UI {
     html += row('Personnel', `${s.role.name} · ${s.designation}`);
     html += row('Time on shift', `${mins}:${secs}`);
     if (s.standingLabel) html += row(`Final ${s.standingLabel.toLowerCase()}`, Math.round(s.standing), s.standing > 25 ? 'ok' : 'bad');
-    const causes = { scp096: 'Torn apart by SCP-096', scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters', shot: 'Shot by Foundation security', beaten: 'Beaten to death' };
+    const causes = { scp096: 'Torn apart by SCP-096', scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters', shot: 'Shot by Foundation security', beaten: 'Beaten to death',
+      scp049: '"Cured" by SCP-049', zombie: 'Torn apart by SCP-049-2', scp012: 'Bled out finishing SCP-012', scp151: 'Drowned on dry land (SCP-151)',
+      pocket: 'Lost in the pocket dimension', scp939: 'Mauled by SCP-939', scp682: 'Devoured by SCP-682', scp330: 'Bled out (SCP-330)',
+      scp207: 'Heart failure (SCP-207)', scp294: 'Something you drank (SCP-294)' };
     if (s.cause) html += row('Cause of death', causes[s.cause] || 'Unknown', 'bad');
     html += row('Tasks completed', s.history.filter((h) => h.status === 'complete').length, 'ok');
     if (s.failed) html += row('Tasks failed or missed', s.failed, 'bad');

@@ -15,6 +15,8 @@ const KIND = {
   scientist: { body: 0xdcdedc, lower: 0x3a3c44, arm: 0xdcdedc, shoes: 0x1e1e20, speed: 1.35, clearance: 3, hp: 70 },
   guard: { body: 0x2a3040, lower: 0x262a34, arm: 0x2a3040, shoes: 0x141416, speed: 1.55, clearance: 3, hp: 100, weapon: 'pistol' },
   classd: { body: 0xd06a20, lower: 0xc46420, arm: 0xd06a20, shoes: 0x2a2a2a, speed: 1.35, clearance: 0, hp: 80 },
+  // SCP-049-2: what SCP-049's "cure" leaves behind.
+  zombie: { body: 0x4a4e48, lower: 0x34363a, arm: 0x7a8a6a, shoes: 0x1e1e20, speed: 1.6, clearance: 0, hp: 90 },
 };
 /** Mobile Task Force operatives are guards in black armour with rifles. */
 const MTF = { body: 0x1a1c20, lower: 0x18191c, arm: 0x1a1c20, shoes: 0x0e0e10, speed: 1.75, clearance: 4, hp: 170, weapon: 'rifle' };
@@ -54,7 +56,7 @@ function partGeometry(boxes) {
 
 function buildModel(kind, rnd, mtf = false) {
   const k = mtf ? MTF : KIND[kind];
-  const skin = SKIN[Math.floor(rnd() * SKIN.length)];
+  const skin = kind === 'zombie' ? 0x8a9a7a : SKIN[Math.floor(rnd() * SKIN.length)];
   const hair = HAIR[Math.floor(rnd() * HAIR.length)];
   const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
   const root = new THREE.Group();
@@ -111,6 +113,12 @@ function buildModel(kind, rnd, mtf = false) {
     torso.push([-4.6, 13, -2.4, 4.6, 14, 2.4, 0x101012]); // belt
     head.push([-3, 27.2, -3, 3, 29.6, 3, 0x20242a]); // helmet
     head.push([-3, 26.6, -3.4, 3, 27.4, -2.8, 0x20242a]); // brim
+  } else if (kind === 'zombie') {
+    torso.push([-3, 15, -2.3, 1, 19, -2.2, 0x6a1a14]); // dried blood
+    torso.push([1.5, 19, -2.3, 4, 22, -2.2, 0x5a1a14]);
+    torso.push([-4.6, 13, -2.4, -2, 16, 2.4, 0x2a2c2e]); // torn hem
+    head.push([-1.6, 25.6, -2.75, -0.6, 26.4, -2.65, 0xe0e8d0]); // clouded eyes
+    head.push([0.6, 25.6, -2.75, 1.6, 26.4, -2.65, 0xe0e8d0]);
   } else {
     torso.push([1.2, 19.5, -2.3, 3.8, 21, -2.25, 0xe8e4d8]); // number patch
     head.push([-2.7, 27.8, -2.7, 2.7, 28.8, 2.7, hair]);
@@ -514,7 +522,7 @@ export class NPC {
         const door = this.doorAhead(tx, tz);
         if (door) {
           canMove = false;
-          if (door.canOpen(this.clearance) || this.mode === 'follow') {
+          if (door.canOpen(this.clearance) || (this.mode === 'follow' && !this.zombie)) {
             if (!door.isOpen) door.open();
           }
           this.blockedTime += dt;
@@ -582,6 +590,9 @@ export class NPC {
         m.armL.rotation.x = Math.PI / 2 - 0.25;
         m.armL.rotation.z = -0.3;
       }
+    } else if (this.zombie) {
+      m.armR.rotation.x = 1.35 + Math.sin(this.phase) * 0.1;
+      m.armL.rotation.x = 1.4 + Math.cos(this.phase) * 0.1;
     } else if (this.rioting) {
       m.armR.rotation.x = 2.4 + Math.sin(this.phase * 2) * 0.4;
       m.armL.rotation.x = 2.2 + Math.cos(this.phase * 2) * 0.4;

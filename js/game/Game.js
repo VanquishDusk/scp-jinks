@@ -88,6 +88,7 @@ export class Game {
     this.ended = null;
     this.onShiftEnd = null;
     this._dir = new THREE.Vector3();
+    this.noises = [];
     this._box = [0, 0, 0, 0, 0, 0];
   }
 
@@ -122,7 +123,8 @@ export class Game {
 
     progress(0.72, 'Placing furniture');
     await nextFrame();
-    const props = buildProps(this.world, f.props, createGrainTexture());
+    this.grain = createGrainTexture();
+    const props = buildProps(this.world, f.props, this.grain);
     this.scene.add(props.mesh);
     this.propColliders = props.colliders;
 
@@ -224,7 +226,9 @@ export class Game {
   }
 
   get clearance() {
-    return Math.max(this.role ? this.role.clearance : 0, this.player.keycard || 0);
+    if (this.player.skeletonT > 0) return 5; // SCP-005
+    const temp = this.director && this.director.tempClearance ? this.director.tempClearance : 0;
+    return Math.max(this.role ? this.role.clearance : 0, this.player.keycard || 0, temp);
   }
 
   applySettings() {
@@ -290,6 +294,7 @@ export class Game {
 
   addCollider(box) {
     this.sessionColliders.push(box);
+    return box;
   }
 
   removeCollider(box) {
@@ -378,6 +383,8 @@ export class Game {
     this.role = ROLES[roleId];
     this.designation = this.role.makeDesignation();
     for (const d of this.doors) d.reset();
+    this.scps.setupRooms();
+    this.noises = [];
     const list = this.spawns[this.role.spawn];
     const sp = list[Math.floor(Math.random() * list.length)];
     this.spawn = sp;
@@ -450,6 +457,11 @@ export class Game {
     return { ok: true };
   }
 
+  /** Something loud happened here (gunfire): SCP-939 can hear it. */
+  makeNoise(x, z, r) {
+    this.noises.push({ x, z, r, t: this.time });
+  }
+
   /** Show a subtitle line; returns how long it stays on screen (s). */
   say(speaker, text, channel = 'voice', duration) {
     const d = duration ?? Math.min(9, Math.max(3, 1.8 + text.length * 0.05));
@@ -474,6 +486,7 @@ export class Game {
   // ---------------------------------------------------------------------------
   update(dt, input) {
     this.time += dt;
+    if (this.noises.length) this.noises = this.noises.filter((n) => this.time - n.t < 1.2);
     const p = this.player;
     if (!p.dead) p.update(dt, input, this.settings);
     else p.updateCamera(dt, false);
@@ -594,6 +607,7 @@ export class Game {
     this.shotIndex = Math.floor(Math.random() * this.shots.length);
     this.shotTime = 0;
     for (const d of this.doors) d.reset();
+    this.scps.setupRooms();
   }
 
   updateMenu(dt) {

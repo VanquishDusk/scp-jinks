@@ -19,6 +19,7 @@ import { FacilityEvents } from './Events.js';
 import { TaskManager } from './objectives.js';
 import { ClassDDirector } from './directors/ClassDDirector.js';
 import { SecurityDirector } from './directors/SecurityDirector.js';
+import { ScpManager } from './scp/ScpManager.js';
 
 const FOG_COLOR = 0x07080a;
 const INTERACT_RANGE = 2.4;
@@ -151,6 +152,7 @@ export class Game {
     progress(0.92, 'Mapping walkways');
     await nextFrame();
     this.nav = new NavGrid(this.world, this.propColliders);
+    this.scps = new ScpManager(this);
 
     this.player = new Player({ collect: (...a) => this.collect(...a) }, this.camera);
     this.player.onDamage = (amount) => this.ui.damageFlash(amount);
@@ -344,6 +346,7 @@ export class Game {
     this.testFloor.stop();
     if (this.tasks) this.tasks.reset();
     if (this.events) this.events.reset();
+    if (this.scps) this.scps.reset(true);
   }
 
   // ---------------------------------------------------------------------------
@@ -385,6 +388,7 @@ export class Game {
       role: this.role,
       designation: this.designation,
       credits: om.credits,
+      spent: om.spent,
       standing: this.director ? this.director.standing : 0,
       standingLabel: this.director ? this.director.standingLabel : '',
       total: this.profile.credits,
@@ -392,8 +396,15 @@ export class Game {
       failed: om.failedCount,
       history: om.history.slice(),
       time: this.time,
+      cause: this.player.dead ? this.player.lastSource : null,
     };
     if (this.onShiftEnd) this.onShiftEnd(summary);
+  }
+
+  /** Open the SCP procurement catalog ('security') or black market ('classd'). */
+  openShop(mode) {
+    if (this.onOpenShop) this.onOpenShop(mode);
+    return { ok: true };
   }
 
   /** Show a subtitle line; returns how long it stays on screen (s). */
@@ -419,9 +430,12 @@ export class Game {
     const p = this.player;
     if (!p.dead) p.update(dt, input, this.settings);
     else p.updateCamera(dt, false);
+    p.blinkActive = this.scps.blinkRelevant;
+    p.updateBlink(dt, !p.dead && input.blinkHeld());
 
     if (this.director) this.director.update(dt);
     for (const n of this.npcs.values()) n.update(dt);
+    if (!this.ended) this.scps.update(dt);
 
     const bodies = [p.aabb(this._box)];
     for (const n of this.npcs.values()) {
@@ -455,6 +469,7 @@ export class Game {
     yield* this.pickups;
     yield* this.stands;
     if (this.ladder.action) yield this.ladder;
+    for (const e of this.scps.entities.values()) if (e.action) yield e;
     yield* this.terminals.values();
     yield* this.firstAids;
     for (const n of this.npcs.values()) if (n.alive) yield n;

@@ -17,6 +17,7 @@ import * as THREE from 'three';
 const DBLOCK = ['D-CLASS CONTAINMENT BLOCK', 'D-BLOCK COMMONS', 'D-BLOCK WASHROOM'];
 const ROUTE_WEST = ['SECURITY CHECKPOINT ALPHA', 'CENTRAL CORRIDOR — WEST'];
 const ROUTE_EAST = [...ROUTE_WEST, 'CENTRAL JUNCTION', 'CENTRAL CORRIDOR — EAST'];
+const ROUTE_HCZ = [...ROUTE_WEST, 'CENTRAL JUNCTION', 'NORTH CORRIDOR', 'HEAVY CONTAINMENT ZONE — ENTRANCE', 'HEAVY CONTAINMENT WING'];
 const SPILLS = [
   { id: 'spill-commons', label: 'D-Block Commons', zones: [], doors: [] },
   { id: 'spill-washroom', label: 'D-Block Washroom', zones: [], doors: [] },
@@ -82,6 +83,33 @@ export class ClassDDirector extends Director {
       medical: { weight: 1, cooldown: 300, make: () => this.makeMedical() },
       headcount: { weight: 2, cooldown: 150, can: () => !DBLOCK.includes(this.game.zone) || Math.random() < 0.4, make: () => this.makeHeadcount() },
       meal: { weight: 1, cooldown: 300, make: () => this.makeMeal() },
+      clean173: {
+        weight: 3,
+        cooldown: 360,
+        can: () => {
+          const e = this.game.scps.entities.get('173');
+          return !!e && e.contained && !this.game.events.busy;
+        },
+        make: () => this.makeClean173(),
+      },
+    };
+
+    // A jury-rigged terminal in the washroom: SCPs bought here raise the odds
+    // of a breach — and a breach is your way out. Don't get seen using it.
+    const bm = this.game.terminals.get('black-market');
+    bm.setStatus('active', 'CONTRABAND LINK');
+    bm.action = {
+      text: 'Use the black-market terminal',
+      sub: 'Make sure no guard is watching',
+      use: (gm) => {
+        const watcher = this.guards().find((gd) => this.canSee(gd, 14));
+        if (watcher) {
+          this.pursue(watcher, `What are you doing on that terminal, ${gm.designation}?!`);
+          this.changeStanding(-20, 'Caught using contraband');
+          return { ok: false, message: 'BUSTED' };
+        }
+        return gm.openShop('classd');
+      },
     };
   }
 
@@ -258,14 +286,8 @@ export class ClassDDirector extends Director {
     const ev = g.events;
     if (name === 'start') {
       this.tasks.cancel((t) => t.kind === 'order', 'Emergency protocol in effect');
-      if (data.type === 'breach') {
-        this.shelterResearchers();
-        this.dispatchGuards(this.pt(data.originDef.point));
-      } else if (data.type === 'riot') {
-        this.dispatchGuards(this.pt('patrol-dblock'));
-      } else if (data.type === 'grid') {
-        this.dispatchGuards(this.pt('server-door'));
-      }
+      if (data.type === 'breach' || data.type === 'scp') this.shelterResearchers();
+      if (data.type !== 'power') this.dispatchGuards(this.eventSite(data));
       this.after(4, () => {
         if (!ev.busy) return;
         this.lockdownOrder(data.type);
@@ -520,6 +542,107 @@ export class ClassDDirector extends Director {
       standing: [3, 8],
       steps: [new TimerStep({ text: 'Eat in the D-Block Commons', zones: ['D-BLOCK COMMONS'], targetFn: () => ({ ...this.pt('w-commons-3'), y: 1.3 }), duration: 15, timeLimit: 90 })],
       announce: 'Meal service in the D-Block Commons. Fifteen minutes. Move.',
+    });
+  }
+
+  // ---- SCP-173 chamber cleaning ----------------------------------------------------
+  makeClean173() {
+    const g = this.game;
+    const e = g.scps.entities.get('173');
+    const ch = e.chamber;
+    const door = g.doorsById.get(ch.door);
+    const outside = { x: ch.outside[0] * 0.5, z: ch.outside[1] * 0.5 };
+    const spots = shuffle(ch.spots).slice(0, 3).map(([x, z]) => ({ x: x * 0.5, z: z * 0.5 }));
+    let guard = null;
+    const grime = [];
+    let cleaned = 0;
+    let cleanedUp = false;
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      for (const t of grime) g.removeInteractable(t);
+      if (guard && guard.alive) {
+        guard.announceBlinks = false;
+        guard.board(outside.x + 6, outside.z);
+      }
+      if (e.contained && door.isOpen && !door.intersectsOpening(g.player.aabb())) door.close();
+    };
+    return new Task({
+      title: "Work detail: clean SCP-173's chamber",
+      giver: 'Site Intercom',
+      kind: 'order',
+      reward: 240,
+      penalty: 30,
+      standing: [20, 20],
+      grants: { zones: [...ROUTE_HCZ, ch.zone], doors: ['d-block-gate', 'checkpoint-door', 'hcz-checkpoint', 'hcz-wing', ch.door] },
+      announce: `${g.designation}, report to the Heavy Containment Wing. You are on SCP-173 chamber maintenance.`,
+      steps: [
+        new ReachStep({
+          text: `Report to ${ch.name} in the Heavy Containment Wing`,
+          point: outside,
+          radius: 2.2,
+          timeLimit: 230,
+          detail: 'Through the Central Junction, up the North Corridor, through the HCZ Checkpoint.',
+          onEnd: (gm, ok) => {
+            if (!ok) return;
+            const [wx, wz, wyaw] = ch.watch;
+            guard = gm.spawnNpc({ id: `watcher-${Date.now()}`, name: this.guardNames[6], title: 'Containment Officer', kind: 'guard', x: wx, z: wz, yaw: wyaw });
+            guard.faceToward(e.pos.x, e.pos.z);
+            guard.yaw = guard.faceYaw;
+            guard.announceBlinks = true;
+            guard.blinkT = 6;
+            door.open();
+            this.run(async () => {
+              await this.say(guard.name, "Listen. I keep my eyes on it. When I call 'Blinking!', YOU watch it until I'm done. Scrub the marked spots and get out.");
+            });
+          },
+        }),
+        new CustomStep({
+          text: 'Scrub the marked spots',
+          detail: "Keep it in sight whenever the officer blinks. Blink yourself (Q) while he's watching.",
+          timeLimit: 150,
+          reward: 60,
+          onStart: (gm) => {
+            for (const sp of spots) {
+              const mesh = new THREE.Group();
+              const mat = new THREE.MeshBasicMaterial({ color: 0x3a2618, transparent: true, opacity: 0.85, depthWrite: false });
+              for (let i = 0; i < 3; i++) {
+                const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4 + Math.random() * 0.4, 0.3 + Math.random() * 0.4), mat);
+                m.rotation.x = -Math.PI / 2;
+                m.rotation.z = Math.random() * 3;
+                m.position.set(sp.x + (Math.random() - 0.5) * 0.4, 0.515 + i * 0.001, sp.z + (Math.random() - 0.5) * 0.4);
+                mesh.add(m);
+              }
+              const t = gm.addTrigger(new Trigger({ id: 'grime', x: sp.x, y: 0.6, z: sp.z, half: [0.55, 0.15, 0.55], mesh }));
+              t.action = {
+                text: 'Scrub the floor',
+                hold: 2.5,
+                use: (gg) => {
+                  cleaned++;
+                  t.action = null;
+                  gg.removeInteractable(t);
+                  return { ok: true, message: `SPOT CLEANED ${cleaned}/3` };
+                },
+              };
+              grime.push(t);
+            }
+          },
+          update: () => cleaned >= 3,
+          progress: () => `${cleaned}/3`,
+          target: () => {
+            const t = grime.find((x) => x.action);
+            return t ? { x: t.origin.x, y: 0.8, z: t.origin.z } : null;
+          },
+        }),
+        new ReachStep({
+          text: 'Back out of the chamber — keep your eyes on it',
+          point: outside,
+          radius: 1.6,
+          onEnd: () => cleanup(),
+        }),
+        this.returnStep(220),
+      ],
+      onEnd: () => cleanup(),
     });
   }
 

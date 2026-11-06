@@ -58,6 +58,39 @@ export class Player {
     this.keycard = 0;
     this.carrying = null;
     this.onDamage = null;
+    this.blink = 1; // 1 = fresh, 0 = must blink
+    this.eyesClosed = false;
+    this.closedT = 0;
+    this.blinkActive = false; // drains only when it matters (SCP-173 nearby)
+  }
+
+  /** Blink meter: drains near SCP-173 and forces a blink when empty. */
+  updateBlink(dt, held) {
+    if (this.dead) {
+      this.eyesClosed = false;
+      return;
+    }
+    if (held) {
+      this.eyesClosed = true;
+      this.closedT = 0.12;
+      this.blink = 1;
+      return;
+    }
+    if (this.closedT > 0) {
+      this.closedT -= dt;
+      if (this.closedT <= 0) this.eyesClosed = false;
+      return;
+    }
+    if (this.blinkActive) {
+      this.blink -= dt / 9;
+      if (this.blink <= 0) {
+        this.blink = 1;
+        this.eyesClosed = true;
+        this.closedT = 0.22;
+      }
+    } else {
+      this.blink = Math.min(1, this.blink + dt * 0.5);
+    }
   }
 
   damage(amount, source) {
@@ -99,6 +132,9 @@ export class Player {
     this.keycard = 0;
     this.carrying = null;
     this.deathT = 0;
+    this.blink = 1;
+    this.eyesClosed = false;
+    this.closedT = 0;
     this.updateCamera(0, false);
   }
 

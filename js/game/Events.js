@@ -47,6 +47,7 @@ export class FacilityEvents {
     this.powerOut = false;
     this.contained = true;
     this.rioters = [];
+    this.scpLoose = false;
     this.alarm = 0;
     this.dark = 0;
     this.time = 0;
@@ -128,6 +129,27 @@ export class FacilityEvents {
       }
       g.ui.banner('CONTAINMENT BREACH', `${ev.originDef.label.toUpperCase()} — EMERGENCY PROTOCOL IN EFFECT`, 'red');
       g.say('SITE INTERCOM', `Attention all personnel. Containment breach in ${ev.originDef.label}. Security grid failure. Emergency door release is in effect. Non-essential staff proceed to safe areas.`, 'pa', 9);
+    } else if (type === 'scp') {
+      // An owned SCP breaks out of its chamber.
+      const e = g.scps.release(opts.scp);
+      if (!e) {
+        this.current = null;
+        return false;
+      }
+      ev.scp = opts.scp;
+      ev.entity = e;
+      ev.label = e.name;
+      ev.originDef = { label: e.name, point: null, site: e.chamber.name, zone: e.chamber.zone };
+      ev.autoAt = rand(220, 300);
+      this.scpLoose = true;
+      this.failGrid();
+      g.ui.banner(`${e.name} CONTAINMENT BREACH`, `${e.chamber.name.toUpperCase()} — CONTAINMENT FAILURE`, 'red');
+      g.say(
+        'SITE INTERCOM',
+        `Attention. ${e.name} has breached containment in the Heavy Containment Wing. Security grid failure. ${e.id === '173' ? 'Maintain eye contact. Do not blink.' : 'Avoid the entity.'}`,
+        'pa',
+        9,
+      );
     } else if (type === 'grid') {
       ev.autoAt = rand(130, 190);
       this.failGrid();
@@ -244,6 +266,17 @@ export class FacilityEvents {
     this.checkEnd();
   }
 
+  /** A loose SCP is back in its chamber. */
+  recontainScp(byPlayer) {
+    const ev = this.current;
+    if (!ev || ev.type !== 'scp' || !this.scpLoose) return;
+    this.scpLoose = false;
+    this.game.scps.recontain(ev.scp);
+    this.game.say('SITE INTERCOM', byPlayer ? `${ev.label} has been recontained.` : `Mobile Task Force has recontained ${ev.label}.`, 'pa', 6);
+    this.emit('recontained', { byPlayer, scp: ev.scp });
+    this.checkEnd();
+  }
+
   quellRiot(byPlayer) {
     if (!this.rioters.length) return;
     for (const n of this.rioters) if (n.rioting) this.game.director.sendToCell(n);
@@ -262,7 +295,8 @@ export class FacilityEvents {
       (ev.type === 'breach' && this.contained && !this.gridOffline) ||
       (ev.type === 'grid' && !this.gridOffline) ||
       (ev.type === 'power' && !this.powerOut) ||
-      (ev.type === 'riot' && this.rioters.length === 0);
+      (ev.type === 'riot' && this.rioters.length === 0) ||
+      (ev.type === 'scp' && !this.scpLoose && !this.gridOffline);
     if (!done) return;
     this.current = null;
     if (ev.type === 'breach') {
@@ -289,6 +323,10 @@ export class FacilityEvents {
     } else if (ev.type === 'grid') this.restoreSecurity(false);
     else if (ev.type === 'power') this.restorePower(false);
     else if (ev.type === 'riot') this.quellRiot(false);
+    else if (ev.type === 'scp') {
+      this.recontainScp(false);
+      this.restoreSecurity(false);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -303,7 +341,7 @@ export class FacilityEvents {
 
     let alarm = 0;
     let color = [1, 0.22, 0.18];
-    if (this.breachActive || (ev && ev.type === 'riot')) alarm = 0.22 + 0.2 * Math.max(0, Math.sin(this.time * 3.2));
+    if (this.breachActive || (ev && ev.type === 'riot') || this.scpLoose) alarm = 0.22 + 0.2 * Math.max(0, Math.sin(this.time * 3.2));
     else if (this.gridOffline) {
       alarm = 0.08 + 0.07 * Math.max(0, Math.sin(this.time * 1.6));
       color = [1, 0.62, 0.2];

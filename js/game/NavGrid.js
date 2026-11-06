@@ -92,6 +92,8 @@ export class NavGrid {
         if (ok) this.walk[z * w + x] = 1;
       }
     }
+    // Walls only (before furniture): used for "clear straight line" checks.
+    this.base = this.walk.slice();
     const pad = 0.12;
     for (const c of colliders) {
       if (c[1] > 1.9 || c[4] < 0.6) continue;
@@ -162,6 +164,21 @@ export class NavGrid {
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       if (!this.walkableAtWorld(ax + dx * t, az + dz * t)) return false;
+    }
+    return true;
+  }
+
+  /** Straight line that crosses no wall or glass (furniture ignored). */
+  lineClear(ax, az, bx, bz) {
+    const dx = bx - ax;
+    const dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    const steps = Math.max(1, Math.ceil(len / (VOXEL * 0.25)));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = Math.floor((ax + dx * t) / VOXEL);
+      const z = Math.floor((az + dz * t) / VOXEL);
+      if (!this.inside(x, z) || !this.base[z * this.w + x]) return false;
     }
     return true;
   }

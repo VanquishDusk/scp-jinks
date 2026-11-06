@@ -245,6 +245,11 @@ export class Input {
     );
   }
 
+  /** Blink on purpose (Q / left trigger). Holding keeps the eyes shut. */
+  blinkHeld() {
+    return this.key('KeyQ') || this.padDown(PAD.LT);
+  }
+
   /** Switch which pager task is focused. */
   cycleTask() {
     return this.keyPressed('Tab') || this.padPressed(PAD.Y);

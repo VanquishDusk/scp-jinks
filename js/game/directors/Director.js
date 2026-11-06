@@ -143,17 +143,31 @@ export class Director {
 
   // ---- Events --------------------------------------------------------------------
   startRandomEvent() {
-    const options = Object.entries(EVENT_WEIGHTS).filter(([k]) => k !== this.lastEvent);
+    // Owned SCPs add their own breach risk on top of the facility's events.
+    const weights = { ...EVENT_WEIGHTS, scp: this.game.scps.breachWeight() };
+    const options = Object.entries(weights).filter(([k, w]) => w > 0 && k !== this.lastEvent);
     let total = options.reduce((s, [, w]) => s + w, 0);
     let r = Math.random() * total;
     for (const [k, w] of options) {
       r -= w;
       if (r <= 0) {
         this.lastEvent = k;
-        this.game.events.start(k);
+        if (k === 'scp') this.game.events.start('scp', { scp: this.game.scps.pickBreachCandidate() });
+        else this.game.events.start(k);
         return;
       }
     }
+  }
+
+  /** Where guards rush to when an event starts. */
+  eventSite(data) {
+    if (data.type === 'scp') {
+      const c = data.entity.chamber;
+      return { x: c.outside[0] * 0.5, z: c.outside[1] * 0.5 };
+    }
+    if (data.type === 'breach') return this.pt(data.originDef.point);
+    if (data.type === 'riot') return this.pt('patrol-dblock');
+    return this.pt('server-door');
   }
 
   onFacilityEvent(name, data) {

@@ -70,6 +70,23 @@ async function boot() {
   let pendingSummary = null;
   let trackerTimer = 0;
   let simSteps = 1; // debug-only fast-forward
+  let shopMode = null;
+  // The key that closes a menu (Esc) must not also count as a pause press.
+  let suppressPauseUntil = 0;
+  // While a terminal menu is open the world keeps running, but the player stands still.
+  const idleInput = {
+    move: () => ({ x: 0, y: 0 }),
+    look: () => ({ x: 0, y: 0 }),
+    jump: () => false,
+    sprint: () => false,
+    crouchHeld: () => false,
+    crouchPressed: () => false,
+    interact: () => false,
+    interactHeld: () => false,
+    pause: () => false,
+    cycleTask: () => false,
+    blinkHeld: () => false,
+  };
   const projected = new THREE.Vector3();
   const camSpace = new THREE.Vector3();
 
@@ -132,6 +149,7 @@ async function boot() {
     ui.showHud(true);
     renderer.setDesaturate(0);
     input.keysPressed.clear();
+    suppressPauseUntil = performance.now() + 250;
     if (!input.usingPad) input.requestLock();
   };
 
@@ -149,9 +167,41 @@ async function boot() {
   ui.on('quit', goMenu);
   ui.on('new-shift', () => startBriefing(lastRole));
 
+  // ---- SCP procurement / black market ----------------------------------------
+  const closeShop = () => {
+    if (state !== 'shop') return;
+    state = 'playing';
+    shopMode = null;
+    ui.showLayer('none');
+    ui.showHud(true);
+    input.keysPressed.clear();
+    suppressPauseUntil = performance.now() + 250;
+    if (!input.usingPad) input.requestLock();
+  };
+  game.onOpenShop = (mode) => {
+    if (state !== 'playing') return;
+    state = 'shop';
+    shopMode = mode;
+    input.exitLock();
+    ui.setPrompt(null);
+    ui.setHold(0);
+    ui.showHud(false);
+    ui.openShop(mode, game.scps.listing(mode), profile.credits);
+  };
+  ui.on('buy', (id) => {
+    if (state !== 'shop') return;
+    const r = game.scps.buy(id, shopMode);
+    ui.openShop(shopMode, game.scps.listing(shopMode), profile.credits, true, r.message);
+  });
+  ui.on('close-shop', closeShop);
+
   // Shift over (escaped, completed or terminated): let the moment land, then
   // show the summary screen.
   game.onShiftEnd = (summary) => {
+    if (state === 'shop') {
+      ui.showLayer('none');
+      ui.showHud(true);
+    }
     pendingSummary = summary;
     endTimer = summary.result === 'terminated' ? 3.2 : 2.5;
     state = 'ending';
@@ -234,9 +284,26 @@ async function boot() {
     window.__game = game;
     window.__breach = (origin) => game.director && game.director.breach(origin);
     window.__objective = () => game.tasks.view();
-    window.__event = (type, origin) => game.events.start(type, { origin });
+    window.__event = (type, origin) => game.events.start(type, { origin, scp: origin });
     window.__clock = (sec) => {
       game.director.clock = sec;
+    };
+    window.__credits = (n) => {
+      profile.addCredits(n);
+      ui.setCredits(profile.credits, n);
+    };
+    // Instantly own and install an SCP (testing).
+    window.__giveScp = (id) => {
+      const slot = game.scps.freeSlot();
+      if (slot === null || profile.owns(id)) return false;
+      profile.addScp(id, slot);
+      game.scps.spawn(id, slot);
+      game.scps.integrity.set(id, 100);
+      return slot;
+    };
+    window.__resetScps = () => {
+      profile.scps = [];
+      profile.save();
     };
     window.__speed = (n) => {
       simSteps = Math.max(1, Math.min(16, n | 0));
@@ -267,7 +334,7 @@ async function boot() {
       if (input.padBack()) ui.back();
     } else if (state === 'playing') {
       renderer.setFade(1);
-      if (input.pause()) {
+      if (input.pause() && performance.now() > suppressPauseUntil) {
         pause();
       } else {
         if (input.cycleTask()) game.tasks.cycleFocus();
@@ -279,6 +346,7 @@ async function boot() {
         ui.setHold(game.holdProgress || 0);
         ui.setStamina(game.player.stamina, game.player.exhausted);
         ui.setHealth(game.player.hp, game.player.maxHp);
+        ui.setBlink(game.player.blinkActive, game.player.blink, game.player.eyesClosed);
         ui.setCapture(!input.locked && !input.usingPad);
         trackerTimer -= dt;
         if (trackerTimer <= 0) {
@@ -287,7 +355,14 @@ async function boot() {
         }
         updateMarker();
       }
+    } else if (state === 'shop') {
+      game.update(dt, idleInput);
+      const dir = input.padMenuDir();
+      if (dir) ui.nav(dir);
+      if (input.padConfirm()) ui.activate();
+      if (input.padBack()) closeShop();
     } else if (state === 'ending') {
+      ui.setBlink(false, 1, false);
       game.update(dt, input);
       ui.setHealth(game.player.hp, game.player.maxHp);
       endTimer -= dt;

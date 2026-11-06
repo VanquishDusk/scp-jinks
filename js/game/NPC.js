@@ -163,6 +163,9 @@ export class NPC {
     this.busy = false; // responding to an event
     this.pursuing = false; // chasing the player
     this.rioting = false;
+    this.blinking = false;
+    this.blinkT = 2 + rnd() * 5;
+    this.announceBlinks = false; // say "Blinking!" before each blink
 
     this.model = buildModel(this.kind, rnd);
     this.model.root.position.copy(this.pos);
@@ -360,6 +363,23 @@ export class NPC {
       this.updateLight(false);
       return;
     }
+    // Everyone blinks — which matters a great deal around SCP-173.
+    this.blinkT -= dt;
+    if (this.announceBlinks && !this.blinking && !this.warned && this.blinkT < 0.9) {
+      this.warned = true;
+      this.game.say(this.name, 'Blinking!');
+    }
+    if (this.blinkT <= 0) {
+      if (this.blinking) {
+        this.blinking = false;
+        this.warned = false;
+        this.blinkT = this.announceBlinks ? 4 + Math.random() * 3 : 3 + Math.random() * 4;
+      } else {
+        this.blinking = true;
+        this.blinkT = 0.35;
+      }
+    }
+
     const player = this.game.player;
     this.moving = false;
     this.waiting = false;

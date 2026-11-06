@@ -3,6 +3,7 @@
 
 import { SETTING_DEFS } from '../settings.js';
 import { ROLES, ROLE_ORDER, CLEARANCE, GAME_TITLE, GAME_SUBTITLE, VERSION, SITE_NAME } from '../config.js';
+import { CLASS_COLOR } from '../game/scp/catalog.js';
 
 const $ = (id) => document.getElementById(id);
 const STAMINA_SEGMENTS = 20;
@@ -62,6 +63,13 @@ export class UI {
       standingValue: $('standing-value'),
       clock: $('clock'),
       wanted: $('wanted'),
+      blinkMeter: $('blink-meter'),
+      blink: $('blink'),
+      blinkOverlay: $('blink-overlay'),
+      shopTitle: $('shop-title'),
+      shopSub: $('shop-sub'),
+      shopList: $('shop-list'),
+      shopFoot: $('shop-foot'),
       notify: $('notify'),
       banner: $('banner'),
       bannerTitle: $('banner-title'),
@@ -88,6 +96,8 @@ export class UI {
     this.trackerKey = '';
     for (let i = 0; i < STAMINA_SEGMENTS; i++) this.el.health.appendChild(document.createElement('i'));
     this.healthSegs = [...this.el.health.children];
+    for (let i = 0; i < STAMINA_SEGMENTS; i++) this.el.blink.appendChild(document.createElement('i'));
+    this.blinkSegs = [...this.el.blink.children];
 
     $('game-title').textContent = GAME_TITLE;
     $('game-subtitle').textContent = GAME_SUBTITLE;
@@ -164,7 +174,7 @@ export class UI {
     for (const s of this.el.menu.querySelectorAll('.screen')) {
       s.classList.toggle('active', s.dataset.screen === name);
     }
-    this.el.menu.classList.toggle('paused', this.stack[0] === 'pause');
+    this.el.menu.classList.toggle('paused', this.stack[0] === 'pause' || this.stack[0] === 'shop');
     this.el.menu.classList.toggle('result', this.stack[0] === 'result');
     if (name === 'title') this.updatePadStatus();
     const items = this.items();
@@ -212,6 +222,8 @@ export class UI {
       this.renderScreen();
     } else if (this.currentScreen === 'pause') {
       this.emit('resume');
+    } else if (this.currentScreen === 'shop') {
+      this.emit('close-shop');
     }
   }
 
@@ -234,6 +246,10 @@ export class UI {
     if (!item) return;
     if (item.dataset.setting) {
       this.settings.step(item.dataset.setting, dir);
+      return;
+    }
+    if (item.dataset.buy) {
+      this.emit('buy', item.dataset.buy);
       return;
     }
     if (item.dataset.role) {
@@ -264,6 +280,9 @@ export class UI {
         break;
       case 'new-shift':
         this.emit('new-shift');
+        break;
+      case 'close-shop':
+        this.emit('close-shop');
         break;
       default:
         break;
@@ -530,6 +549,7 @@ export class UI {
     this.clockKey = '';
     this.el.trList.innerHTML = '';
     this.setWanted(null);
+    this.setBlink(false, 1, false);
     this.setPrompt(null);
   }
 
@@ -604,6 +624,76 @@ export class UI {
       }
       list.appendChild(row);
     }
+  }
+
+  /** Render the SCP catalog. mode: 'security' | 'classd'. */
+  openShop(mode, items, credits, keepFocus = false, notice = '') {
+    const black = mode === 'classd';
+    this.el.shopTitle.textContent = black ? 'Black Market' : 'SCP Procurement';
+    this.el.shopSub.textContent = notice
+      ? `${notice} · ${credits.toLocaleString()} CR left`
+      : black
+        ? `Forged transfer orders. ${credits.toLocaleString()} CR available. Markup applies.`
+        : `Site acquisitions. ${credits.toLocaleString()} CR available.`;
+    this.el.shopFoot.textContent = black
+      ? 'More SCPs means more breaches — and every breach opens the doors. Close this before a guard walks in.'
+      : 'Contained SCPs pay research grants every minute. Dangerous ones decay faster: schedule containment checks.';
+    const list = this.el.shopList;
+    list.innerHTML = '';
+    const statusText = { owned: 'In containment', buy: 'Purchase', poor: 'Not enough credits', full: 'No free chamber' };
+    for (const it of items) {
+      const div = document.createElement('div');
+      div.className = `item shop-item ${it.status}`;
+      if (it.status === 'buy') div.dataset.buy = it.id;
+      const risk = '■'.repeat(it.risk) + '□'.repeat(Math.max(0, 5 - it.risk));
+      div.innerHTML = `
+        <div class="s-name"></div><div class="s-nick"></div><div class="s-class"></div>
+        <div class="s-stats">
+          <span>Price</span><span class="s-price"></span>
+          <span>Research grants</span><span class="s-income"></span>
+          <span>Breach risk</span><span class="risk"></span>
+          ${it.integrity !== null ? '<span>Integrity</span><span class="s-integ"></span>' : ''}
+        </div>
+        <div class="s-desc"></div><div class="s-perk"></div><div class="s-status"></div>`;
+      div.querySelector('.s-name').textContent = it.name;
+      div.querySelector('.s-nick').textContent = `"${it.nick}"`;
+      const cls = div.querySelector('.s-class');
+      cls.textContent = `OBJECT CLASS: ${it.cls.toUpperCase()}`;
+      cls.style.color = CLASS_COLOR[it.cls];
+      div.querySelector('.s-price').textContent = `${it.price.toLocaleString()} CR`;
+      div.querySelector('.s-income').textContent = `${it.income} CR / min`;
+      div.querySelector('.risk').textContent = risk;
+      if (it.integrity !== null) div.querySelector('.s-integ').textContent = `${it.integrity}%`;
+      div.querySelector('.s-desc').textContent = it.desc;
+      div.querySelector('.s-perk').textContent = it.perk;
+      div.querySelector('.s-status').textContent = statusText[it.status];
+      list.appendChild(div);
+    }
+    const prev = this.focusIndex;
+    this.showLayer('menu');
+    this.stack = ['shop'];
+    this.renderScreen();
+    if (keepFocus) {
+      this.focusIndex = Math.min(prev, this.items().length - 1);
+      this.applyFocus();
+    }
+  }
+
+  setBlink(visible, value, closed) {
+    this.el.blinkMeter.classList.toggle('hidden', !visible);
+    this.el.blinkOverlay.classList.toggle('closed', !!closed);
+    if (!visible) return;
+    const lit = Math.ceil(value * STAMINA_SEGMENTS - 0.001);
+    for (let i = 0; i < STAMINA_SEGMENTS; i++) this.blinkSegs[i].classList.toggle('off', i >= lit);
+    this.el.blink.classList.toggle('low', value < 0.3);
+  }
+
+  neckSnap() {
+    const d = this.el.damage;
+    d.classList.remove('snap');
+    void d.offsetWidth;
+    d.classList.add('snap');
+    this.damageLevel = 1;
   }
 
   setStanding(label, value, delta) {
@@ -741,9 +831,12 @@ export class UI {
     html += row('Personnel', `${s.role.name} · ${s.designation}`);
     html += row('Time on shift', `${mins}:${secs}`);
     if (s.standingLabel) html += row(`Final ${s.standingLabel.toLowerCase()}`, Math.round(s.standing), s.standing > 25 ? 'ok' : 'bad');
+    const causes = { scp173: 'Neck snapped by SCP-173', anomaly: 'Killed by an anomalous entity', field: 'Anomalous field exposure', shock: 'Anomalous discharge', pulse: 'Resonance pulse', riot: 'Beaten by rioters' };
+    if (s.cause) html += row('Cause of death', causes[s.cause] || 'Unknown', 'bad');
     html += row('Tasks completed', s.history.filter((h) => h.status === 'complete').length, 'ok');
     if (s.failed) html += row('Tasks failed or missed', s.failed, 'bad');
     html += row('Credits earned', `${s.credits >= 0 ? '+' : ''}${s.credits.toLocaleString()} CR`, 'cr');
+    if (s.spent) html += row('Spent on SCP acquisitions', `-${s.spent.toLocaleString()} CR`, 'bad');
     html += row('Total credits', `${s.total.toLocaleString()} CR`, 'cr');
     if (s.history.length) {
       html += '<ul>' + s.history.slice(-10).map((h) => `<li>${h.status === 'complete' ? '✓' : '✗'} ${escapeHtml(h.title)}</li>`).join('') + '</ul>';

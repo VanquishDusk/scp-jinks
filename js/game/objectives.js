@@ -292,6 +292,7 @@ export class TaskManager {
     this.credits = 0;
     this.completed = 0;
     this.failedCount = 0;
+    this.spent = 0;
     this.history = [];
   }
 

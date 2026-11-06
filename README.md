@@ -4,10 +4,10 @@ A single-player, retro voxel **SCP Foundation facility simulation** that runs en
 browser. It uses a low-resolution, dithered, PS2-era look with chunky voxel architecture, baked
 lighting and pixel-art textures that are generated in code.
 
-> **v0.3.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
-> Security Guard). Randomized concurrent tasks with deadlines, random facility events, guards
-> that hunt down Class-D who are out of bounds, Standing, Credits, and many ways to fail.
-> The game is silent by design (no audio).
+> **v0.4.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
+> Security Guard), plus an **SCP tycoon layer**. Buy SCPs, house them in the Heavy Containment
+> Wing and earn research grants, at the risk of breaches. SCP-173 is in, with real
+> line-of-sight and blinking rules. The game is silent by design (no audio).
 
 ## Play
 
@@ -51,6 +51,7 @@ Then open <http://localhost:8000>.
 | Interact            | `E`, `F` or left click           | `X` / `RB`                 |
 | Terminals & repairs | Hold `E`                         | Hold `X`                   |
 | Switch pager task   | `Tab`                            | `Y`                        |
+| Blink (hold = shut) | `Q`                              | `LT`                       |
 | Pause               | `Esc` / `P`                      | `Start`                    |
 | Menus               | Arrows/WASD, `Enter`, `Esc`      | D-pad, `A`, `B`            |
 
@@ -122,6 +123,48 @@ emergency counts as failed:
 
 Losing researchers on your watch costs Performance.
 
+## SCPs (tycoon layer)
+
+The site owns a persistent **containment roster** that both classes share. It is saved in your
+browser along with your Credits. The **Heavy Containment Wing** (east of the HCZ Checkpoint) has
+six chambers.
+
+| SCP     | Class  | Price   | Research grants | Breach risk | Notes |
+|---------|--------|---------|-----------------|-------------|-------|
+| SCP-500 | Safe   | 600 CR  | 6 CR/min        | none        | The chamber terminal dispenses one full-heal pill per shift |
+| SCP-999 | Safe   | 1400 CR | 14 CR/min       | low         | Loose, it wanders the halls and heals anyone it hugs. The grid still fails open |
+| SCP-173 | Euclid | 3500 CR | 48 CR/min       | very high   | Lethal. Containment integrity decays fast |
+
+- **Buying:**
+  - **Security** buys from the **Procurement terminal** on the south wall of the Security Office.
+  - **Class-D** use the **jury-rigged black-market terminal** in the D-Block washroom, which
+    charges a 25% markup. If a guard sees you on it, you are busted: you lose Compliance and the
+    guard chases you. The world keeps running while the menu is open.
+- **Delivery:** a bought SCP is transported into a free chamber partway through the shift.
+- **Money vs risk:** contained SCPs pay Security research grants every minute. Each SCP's
+  containment integrity decays, and dangerous ones decay faster. Low integrity raises the chance
+  of a breach event, and at zero the SCP breaks out. Security gets *containment check* jobs to
+  restore integrity. Class-D buy SCPs for the opposite reason: more breaches mean more chances to
+  escape.
+
+### SCP-173
+
+- It **cannot move while anyone is looking at it**. That means you, while your eyes are open, it
+  is in view, nothing blocks the line of sight and there is enough light, or any NPC facing it
+  with their eyes open. Glass windows count as looking.
+- The moment **nobody** is watching, it teleports behind anyone it can reach in a clear straight
+  line and snaps their neck. Walls, glass and closed doors stop it, and it **cannot open doors**.
+  Out of everyone's sight, it closes in fast through open doorways.
+- **Blinking:** near SCP-173 a blink meter drains and you blink involuntarily when it runs out.
+  Press `Q` to blink on your own terms, ideally while someone else is watching it. NPCs blink
+  too. During a power failure it is too dark to see it unless it is right next to you.
+- **When it breaches:** guards stop and stare it down, but they still blink. Security must find
+  it and **cage it**: keep your eyes on it and hold `E` for three seconds. If you leave it, MTF
+  eventually recontains it and the failure goes on your record.
+- **Class-D order: clean SCP-173's chamber.** A containment officer watches the statue and calls
+  out "Blinking!" before he blinks. When he does, *you* have to be looking at it. Scrub three
+  marked spots, then back out.
+
 ### Health
 
 Health recovers slowly, and wall-mounted **first aid stations** heal you faster. The test
@@ -153,7 +196,13 @@ js/
     NavGrid.js             Walkability grid, A* pathfinding and path smoothing
     Interactables.js       Terminals, pickups, first aid stations, specimen stands, triggers
     Hazards.js             Test chamber floor field and roaming anomalies
-    Profile.js             Saved Credits and shift statistics
+    Profile.js             Saved Credits, shift statistics and the SCP roster
+    scp/
+      catalog.js           SCP prices, research grants, integrity decay, breach risk
+      ScpManager.js        Roster, chambers, deliveries, income, integrity, observation rules
+      Scp173.js            SCP-173 model and behavior
+      SimpleScps.js        SCP-500 and SCP-999
+      voxelModel.js        Box-model geometry helper
   player/
     Player.js              Movement, collision, step-up, crouch, stamina, health, head bob
   ui/
@@ -194,6 +243,10 @@ When you open the game with `?debug`, the browser console gets these helpers:
 - `__event('breach' | 'grid' | 'power' | 'riot', origin?)`: trigger an event.
 - `__clock(seconds)`: jump the shift clock.
 - `__objective()`: the pager data.
+- `__credits(n)`: add Credits.
+- `__giveScp(id)`: install an SCP instantly.
+- `__resetScps()`: clear the roster.
+- `__event('scp', '173')`: breach a specific SCP.
 - `__speed(n)`: fast-forward the simulation.
 
 ## Credits & licensing

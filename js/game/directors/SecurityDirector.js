@@ -11,6 +11,7 @@
 import { Director, shuffle, pick, rand, SHIFT_LENGTH } from './Director.js';
 import { Task, ReachStep, ActionStep, PickupStep, PatrolStep, EscortStep, CustomStep, withThe } from '../objectives.js';
 import { Trigger } from '../Interactables.js';
+import { CATALOG } from '../scp/catalog.js';
 
 const PATROL = [
   'patrol-dblock', 'patrol-commons', 'patrol-cafeteria', 'patrol-storage', 'patrol-hub',
@@ -50,7 +51,28 @@ export class SecurityDirector extends Director {
       delivery: { weight: 2, cooldown: 120, make: () => this.makeDelivery() },
       repair: { weight: 2, cooldown: 100, make: () => this.makeRepair() },
       transfer: { weight: 2, cooldown: 150, can: () => this.classdCandidates().length > 0 && !this.game.events.busy, make: () => this.makeTransfer() },
+      contcheck: { weight: 5, cooldown: 45, can: () => this.checkCandidates().length > 0, make: () => this.makeContainmentCheck() },
     };
+
+    const g = this.game;
+    const proc = g.terminals.get('procurement');
+    proc.setStatus('active', 'CATALOG ONLINE');
+    proc.action = { text: 'Open the SCP procurement catalog', use: (gm) => gm.openShop('security') };
+
+    // SCP-500's chamber terminal dispenses one pill per shift.
+    const s500 = g.scps.entities.get('500');
+    if (s500) {
+      const t = g.terminals.get(s500.chamber.terminal);
+      t.action = {
+        text: 'Dispense one SCP-500 pill',
+        hold: 1.5,
+        use: (gm) => {
+          gm.player.heal(100);
+          t.action = null;
+          return { ok: true, message: 'SCP-500 ADMINISTERED — FULLY HEALED' };
+        },
+      };
+    }
   }
 
   start() {
@@ -102,6 +124,13 @@ export class SecurityDirector extends Director {
       else if (data.type === 'grid') this.gridTask();
       else if (data.type === 'power') this.powerTask();
       else if (data.type === 'riot') this.riotTask();
+      else if (data.type === 'scp') this.recontainTask(data);
+      if (data.type === 'scp') {
+        this.shelterResearchers();
+        this.dispatchGuards(this.eventSite(data));
+      }
+    } else if (name === 'recontained' && !data.byPlayer) {
+      this.failTag('recontain', 'MTF had to recontain it for you');
     } else if (name === 'grid-down' && !this.tasks.has('grid')) {
       this.after(6, () => this.gridTask());
     } else if (name === 'contained' && !data.byPlayer) {
@@ -226,6 +255,95 @@ export class SecurityDirector extends Director {
         ],
       }),
     );
+  }
+
+  recontainTask(ev) {
+    const g = this.game;
+    const e = ev.entity;
+    const is173 = e.id === '173';
+    this.run(async () => {
+      await this.wait(2);
+      this.game.say(
+        this.chief.name,
+        is173
+          ? `All units, ${e.name} is loose! Find it, keep your eyes on it, and get it caged. Never let it out of sight — and watch your blinking.`
+          : `${e.name} is out of its chamber. Find it and bring it back.`,
+        'radio',
+      );
+      this.tasks.add(
+        new Task({
+          title: `Recontain ${e.name}`,
+          giver: this.chief.name,
+          kind: 'emergency',
+          tag: 'recontain',
+          reward: is173 ? 400 : 150,
+          penalty: is173 ? 80 : 30,
+          standing: [is173 ? 25 : 10, is173 ? 25 : 10],
+          steps: [
+            new CustomStep({
+              text: is173 ? 'Cage SCP-173 — stare at it and hold' : `Return ${e.name} to its chamber`,
+              detail: is173 ? 'It only moves when nobody is looking. Blink (Q) only while someone else watches it.' : 'It is harmless. Pick it up.',
+              onStart: () => {
+                e.action = {
+                  text: is173 ? 'Secure SCP-173 in a containment cage' : `Carry ${e.name} back to containment`,
+                  hold: is173 ? 3 : 2,
+                  use: (gm) => {
+                    gm.events.recontainScp(true);
+                    return { ok: true, message: `${e.name} RECONTAINED` };
+                  },
+                };
+              },
+              update: (gm) => !gm.events.scpLoose,
+              target: () => ({ x: e.pos.x, y: e.pos.y + 2.4, z: e.pos.z }),
+              onEnd: () => {
+                e.action = null;
+              },
+            }),
+          ],
+        }),
+      );
+    });
+  }
+
+  checkCandidates() {
+    const g = this.game;
+    return [...g.scps.entities.values()].filter(
+      (e) => e.contained && CATALOG[e.id].decay > 0 && (g.scps.integrity.get(e.id) ?? 100) < 85 && !this.tasks.inUse(e.chamber.terminal),
+    );
+  }
+
+  makeContainmentCheck() {
+    const g = this.game;
+    const list = this.checkCandidates().sort((a, b) => (g.scps.integrity.get(a.id) ?? 100) - (g.scps.integrity.get(b.id) ?? 100));
+    const e = list[0];
+    const c = CATALOG[e.id];
+    const integ = Math.round(g.scps.integrity.get(e.id) ?? 100);
+    return new Task({
+      title: `Containment check: ${e.name}`,
+      giver: 'Containment Engineering',
+      channel: 'radio',
+      announce: `${e.name} containment integrity is at ${integ} percent. Run a containment check at ${e.chamber.name} before it gets worse.`,
+      reward: 40 + c.income * 2,
+      penalty: 30,
+      standing: [6, 12],
+      deadline: 170,
+      uses: [e.chamber.terminal],
+      steps: [
+        new ActionStep({
+          text: `Run the containment check at ${e.chamber.name}`,
+          detail: 'Heavy Containment Wing, east of the HCZ Checkpoint.',
+          object: g.terminals.get(e.chamber.terminal),
+          action: { text: `Run containment check (${e.name})`, hold: 3 },
+          screen: 'CHECK REQUIRED',
+          doneScreen: 'INTEGRITY 100%',
+          onUse: (gm) => {
+            gm.scps.restoreIntegrity(e.id);
+            return { ok: true, message: `${e.name} CONTAINMENT RESTORED` };
+          },
+        }),
+      ],
+      onFail: (gm) => gm.scps.integrity.set(e.id, Math.max(0, (gm.scps.integrity.get(e.id) ?? 50) - 20)),
+    });
   }
 
   gridTask() {

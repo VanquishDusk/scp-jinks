@@ -130,6 +130,11 @@ export const STYLES = {
     base: T.WALL_BASE, lower: T.WALL_GREY, stripe: T.STRIPE_DARK, upper: T.WALL_WHITE,
     lowerTop: 2, stripeY: 3,
   },
+  chamber: {
+    floor: T.FLOOR_CONCRETE, ceiling: T.CEIL_CONCRETE,
+    base: T.HAZARD, lower: T.CONCRETE, stripe: T.STRIPE_RED, upper: T.CONCRETE,
+    lowerTop: 2, stripeY: 5,
+  },
   breakroom: {
     floor: T.FLOOR_CARPET, ceiling: T.CEIL_TILE,
     base: T.WALL_BASE, lower: T.WALL_PAINTED, stripe: T.STRIPE_GREEN, upper: T.WALL_PAINTED,

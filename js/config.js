@@ -3,7 +3,7 @@
 export const GAME_TITLE = 'SCP: JINKS';
 export const GAME_SUBTITLE = 'Foundation Facility Simulation';
 export const SITE_NAME = 'SITE-██';
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 
 /** Size of one voxel in meters. All world-space values are in meters. */
 export const VOXEL = 0.5;

@@ -30,6 +30,7 @@ export class FacilityBuilder {
     this.points = {};
     this.terminals = [];
     this.firstAids = [];
+    this.chambers = [];
   }
 
   /** Named gameplay location (objectives, NPC posts). Voxel coordinates. */

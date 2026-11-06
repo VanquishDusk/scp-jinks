@@ -56,8 +56,15 @@
     <div id="marker" class="marker hidden"><div class="marker-diamond"></div><div id="marker-dist" class="marker-dist"></div></div>
     <div id="hold" class="hold hidden"><div id="hold-fill" class="hold-fill"></div></div>
     <div id="damage" class="damage"></div>
+    <div id="blink-overlay" class="blink-overlay"></div>
 
     <div class="meters">
+      <div class="meter hidden" id="blink-meter">
+        <svg class="meter-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" d="M1 8c2-3 4-5 7-5s5 2 7 5c-2 3-4 5-7 5S3 11 1 8zm7-3a3 3 0 100 6 3 3 0 000-6zm0 2a1 1 0 110 2 1 1 0 010-2z"/>
+        </svg>
+        <div class="segments blink" id="blink"></div>
+      </div>
       <div class="meter">
         <svg class="meter-icon" viewBox="0 0 16 16" aria-hidden="true">
           <path fill="currentColor" d="M6 2h4v4h4v4h-4v4H6v-4H2V6h4z"/>
@@ -145,6 +152,7 @@
           <tr><td>Interact</td><td>E / F / Left click</td><td>X / RB</td></tr>
           <tr><td>Terminals &amp; repairs</td><td>Hold E</td><td>Hold X</td></tr>
           <tr><td>Switch pager task</td><td>Tab</td><td>Y</td></tr>
+          <tr><td>Blink (hold to keep eyes shut)</td><td>Q</td><td>LT</td></tr>
           <tr><td>Pause</td><td>Esc / P</td><td>Start</td></tr>
           <tr><td>Menus</td><td>Arrows / WASD · Enter · Esc</td><td>D-pad · A · B</td></tr>
         </tbody>
@@ -170,6 +178,16 @@
       <nav class="items">
         <div class="item" data-action="back">Back</div>
       </nav>
+    </section>
+
+    <section class="screen" data-screen="shop">
+      <h2 id="shop-title">SCP Procurement</h2>
+      <div class="subtitle" id="shop-sub"></div>
+      <div class="shop-list" id="shop-list"></div>
+      <nav class="items">
+        <div class="item" data-action="close-shop">Close Terminal</div>
+      </nav>
+      <div class="footer small" id="shop-foot"></div>
     </section>
 
     <section class="screen" data-screen="result">

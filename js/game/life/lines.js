@@ -58,7 +58,7 @@ export const SMALLTALK = {
 export const SMALLTALK_D = {
   warm: ['Still alive. That\'s a good day in here.', 'Keep your chin up. We\'ll get through this.'],
   cold: ['Get lost.', 'What do you want?'],
-  anxious: ['They took Rourke yesterday. He didn\'t come back. Am I next?', 'I can\'t sleep. Every time the door buzzes I think it\'s my turn.'],
+  anxious: ['They took Rourke yesterday. Never came back. Am I next?', 'I can\'t sleep. Every time the door buzzes I think it\'s my turn.'],
   bold: ['One of these days, I\'m walking out of here.', 'They can test me all they want. I\'m not breaking.'],
   chatty: ['You hear the new guy cries every night? Poor kid.', 'Guards changed the patrol again. Watch the corridor around lunch.'],
   shady: ['Got smokes? No? Then we\'ve got nothing to talk about.', 'I can get things. For a price.'],
@@ -146,6 +146,13 @@ export const ARGUE = [
   ['Stop leaving your files on my desk.', 'Then stop using my desk.'],
   ['You reported me to Mercer, didn\'t you?', 'You were asleep on duty!'],
   ['Don\'t talk to me like that.', 'I\'ll talk to you however I want.'],
+];
+export const ARGUE_D = [
+  ['You took my bunk again.', 'Didn\'t see your name on it.'],
+  ['You owe me two cigarettes.', 'I owe you nothing.'],
+  ['You were talking to the guards. I saw you.', 'Mind your own business.'],
+  ['Stop eating off my tray.', 'Then eat faster.'],
+  ['Keep your voice down at night.', 'Make me.'],
 ];
 
 // ---- Mood bubbles -----------------------------------------------------------------------

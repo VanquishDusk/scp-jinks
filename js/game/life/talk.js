@@ -615,9 +615,9 @@ export class Talk {
 
   // ---- Keycards and contraband for sale (Class-D) ---------------------------------------------------------
   offerSale(n, kind) {
-    const price = kind === 'fence' ? 220 : 340;
-    const level = kind === 'fence' ? 1 : 2;
-    const pitch = kind === 'fence' ? pick(L.HOOK_LINES.fence) : 'You want out? Level 2 keycard. Three-forty. Dead drop in your washroom.';
+    const price = kind === 'fence' ? 260 : 420;
+    const level = kind === 'fence' ? 2 : 3;
+    const pitch = kind === 'fence' ? `${pick(L.HOOK_LINES.fence)} Level 2. ${price} credits.` : `You want out? Level 3 keycard. ${price} credits. Dead drop in your washroom.`;
     if (this.role === 'security') {
       return this.node(kind === 'fence' ? 'Keycards? Me? Never seen one in a bin in my life, officer.' : 'Nothing going on here, officer.', [
         { label: 'I know what you\'re doing.', fn: () => {

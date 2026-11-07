@@ -987,10 +987,10 @@ export class Life {
     }
     // A snitch whispering to the D-Block guard.
     if (a.kind === 'classd' && b.kind === 'guard') {
-      return [[a, pick(['Psst. Officer.', 'Got a minute, boss?'])], [b, pick(['What is it, D?', 'Make it quick.'])], [a, pick(['Just... keep an eye on the commons tonight.', 'Nothing. Just saying hi.', 'Some of the guys are talking. That\'s all.'])], [b, pick(['Noted. Get lost.', 'Good boy.', '...Thanks.'])]];
+      return [[a, pick(['Psst. Officer.', 'Got a minute, boss?'])], [b, pick(['What is it, D?', 'Make it quick.'])], [a, pick(['Just... keep an eye on the commons tonight.', 'Nothing. Just saying hi.', 'Some of the others are talking. That\'s all.'])], [b, pick(['Noted. Get lost.', 'Good. Keep it coming.', '...Thanks.'])]];
     }
     if (tie < -0.35 && chance(0.6)) {
-      const [x, y] = pick(L.ARGUE);
+      const [x, y] = pick(a.kind === 'classd' ? L.ARGUE_D : L.ARGUE);
       const lines = [[a, x], [b, y], [a, pick(L.REPLIES.cold)]];
       lines.argument = true;
       return lines;
@@ -1120,7 +1120,7 @@ export class Life {
       } else line = pick(L.GREET[voiceOf(t)] || L.GREET.plain);
       if (chance(t.social * 0.8 + 0.25) || rel >= 30) n.say(this.fill(line), 3);
       // Someone with something to ask comes over (once per shift).
-      if (n.person.hook && !n.person.flags.approached && t.social > 0.42 && rel >= -10 && this.time > 50 && this.time > this.approachT && this.canDrive(n)) this.approachPlayer(n);
+      if (n.person.hook && !n.person.flags.approached && !n.person.flags.hookDone && t.social > 0.42 && rel >= -10 && this.time > 50 && this.time > this.approachT && this.canDrive(n) && this.talk.hookFor(n)) this.approachPlayer(n);
     }
   }
 

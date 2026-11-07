@@ -592,6 +592,14 @@ export class NPC {
 
   update(dt) {
     if (this.hidden) return;
+    // Beyond the fog nobody can see them: don't draw them at all.
+    {
+      const pl = this.game.player.pos;
+      const fogFar = (this.game.scene.fog ? this.game.scene.fog.far : 60) + 3;
+      const dx = pl.x - this.pos.x;
+      const dz = pl.z - this.pos.z;
+      this.model.root.visible = dx * dx + dz * dz < fogFar * fogFar;
+    }
     if (this.bubble) {
       this.bubble.t -= dt;
       if (this.bubble.t <= 0) this.bubble = null;
@@ -772,8 +780,10 @@ export class NPC {
     m.root.rotation.y = this.yaw;
     // Far from the player: keep moving, skip the fine animation work.
     const pl = this.game.player.pos;
-    const far = Math.abs(pl.x - this.pos.x) > 48 || Math.abs(pl.z - this.pos.z) > 48;
-    if (far && !this.pose) {
+    const cdx = pl.x - this.pos.x;
+    const cdz = pl.z - this.pos.z;
+    const far = Math.abs(cdx) > 48 || Math.abs(cdz) > 48;
+    if (!m.root.visible || (far && !this.pose)) {
       this.updateLight(false);
       return;
     }

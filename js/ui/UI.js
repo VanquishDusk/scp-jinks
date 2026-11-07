@@ -115,7 +115,7 @@ export class UI {
     $('game-subtitle').textContent = GAME_SUBTITLE;
     $('version').textContent = `v${VERSION} · foundation build`;
     const touchOnly = window.matchMedia && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
-    if (touchOnly) $('touch-note').textContent = 'Touch controls are not supported yet: use a keyboard & mouse or a gamepad.';
+    if (touchOnly) $('touch-note').textContent = 'Touch controls on. Play in landscape for the best view.';
 
     for (let i = 0; i < STAMINA_SEGMENTS; i++) this.el.stamina.appendChild(document.createElement('i'));
     this.staminaSegs = [...this.el.stamina.children];
@@ -131,7 +131,11 @@ export class UI {
     });
     this.el.menu.addEventListener('click', (e) => {
       const item = e.target.closest('.item');
-      if (!item) return;
+      if (!item) {
+        // Tapping outside the conversation box walks away.
+        if (this.currentScreen === 'talk' && !e.target.closest('.talk-box')) this.emit('close-talk');
+        return;
+      }
       this.focusElement(item);
       this.activate(item, 1);
     });
@@ -515,7 +519,7 @@ export class UI {
     }
     this.el.prompt.classList.remove('hidden');
     this.el.prompt.classList.toggle('denied', info.denied);
-    this.el.promptKey.textContent = usingPad ? 'X' : 'E';
+    this.el.promptKey.textContent = usingPad === 'touch' ? 'USE' : usingPad ? 'X' : 'E';
     this.el.promptText.textContent = info.text;
     this.el.promptSub.textContent = info.sub || '';
     this.el.crosshair.className = `crosshair active${info.denied ? ' denied' : ''}`;
@@ -744,6 +748,8 @@ export class UI {
       div.append(k, document.createTextNode(label));
       list.appendChild(div);
     });
+    const foot = $('talk-foot');
+    if (foot && document.body.classList.contains('touch')) foot.textContent = 'Tap an answer · tap outside to leave';
     this.showLayer('menu');
     this.stack = ['talk'];
     this.renderScreen();

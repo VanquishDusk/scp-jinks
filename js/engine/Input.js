@@ -30,6 +30,7 @@ export class Input {
     this.lockFailed = false;
     this.lockLostAt = 0;
     this.onLockChange = null;
+    this.touch = null; // TouchControls, on phones and tablets
 
     this.pad = null;
     this.padButtons = [];
@@ -152,10 +153,12 @@ export class Input {
     this.mouseDY = 0;
     this.wheel = 0;
     this.padPrev = this.padButtons;
+    if (this.touch) this.touch.clearEdges();
   }
 
   /** Call at the end of every frame. */
   endFrame() {
+    if (this.touch) this.touch.clearEdges();
     this.keysPressed.clear();
     this.mouseDX = 0;
     this.mouseDY = 0;
@@ -179,6 +182,20 @@ export class Input {
     return !!this.padButtons[i] && !this.padPrev[i];
   }
 
+  /** Playing with the on-screen touch controls. */
+  get usingTouch() {
+    return !!(this.touch && this.touch.enabled);
+  }
+
+  /** Touch button held / tapped this frame. */
+  tDown(id) {
+    return !!this.touch && this.touch.down(id);
+  }
+
+  tTap(id) {
+    return !!this.touch && this.touch.tapped(id);
+  }
+
   get usingPad() {
     return this.pad !== null && performance.now() - this.padActiveAt < 15000;
   }
@@ -195,6 +212,10 @@ export class Input {
     if (this.key('KeyA')) x -= 1;
     x += this.padAxes[0];
     y -= this.padAxes[1];
+    if (this.touch && this.touch.visible) {
+      x += this.touch.move.x;
+      y += this.touch.move.y;
+    }
     const len = Math.hypot(x, y);
     if (len > 1) {
       x /= len;
@@ -218,30 +239,35 @@ export class Input {
     const cy = this.padAxes[3];
     x += Math.sign(cx) * cx * cx * rs;
     y += Math.sign(cy) * cy * cy * rs * 0.75;
+    if (this.touch && this.touch.visible) {
+      x += this.touch.lookDX * mouseSens * 2.2;
+      y += this.touch.lookDY * mouseSens * 2.2;
+    }
     return { x, y };
   }
 
   jump() {
-    return this.keyPressed('Space') || this.padPressed(PAD.A);
+    return this.keyPressed('Space') || this.padPressed(PAD.A) || this.tTap('jump');
   }
 
   sprint() {
-    return this.key('ShiftLeft') || this.key('ShiftRight') || this.padDown(PAD.L3) || this.padDown(PAD.LB);
+    return this.key('ShiftLeft') || this.key('ShiftRight') || this.padDown(PAD.L3) || this.padDown(PAD.LB) || !!(this.touch && this.touch.visible && this.touch.sprinting);
   }
 
   crouchHeld() {
-    return this.key('KeyC') || this.padDown(PAD.B);
+    return this.key('KeyC') || this.padDown(PAD.B) || !!(this.touch && this.touch.visible && this.touch.crouchOn);
   }
 
   crouchPressed() {
-    return this.keyPressed('KeyC') || this.padPressed(PAD.B);
+    return this.keyPressed('KeyC') || this.padPressed(PAD.B) || this.tTap('crouch');
   }
 
   interact() {
     return (
       this.keyPressed('KeyE') ||
       this.keyPressed('KeyF') ||
-      this.padPressed(PAD.X)
+      this.padPressed(PAD.X) ||
+      this.tTap('interact')
     );
   }
 
@@ -250,22 +276,23 @@ export class Input {
     return (
       this.key('KeyE') ||
       this.key('KeyF') ||
-      this.padDown(PAD.X)
+      this.padDown(PAD.X) ||
+      this.tDown('interact')
     );
   }
 
   // ---- Combat ------------------------------------------------------------
 
   attackPressed() {
-    return (this.locked && this.mouseClicked) || this.padPressed(PAD.RT);
+    return (this.locked && this.mouseClicked) || this.padPressed(PAD.RT) || this.tTap('attack');
   }
 
   attackHeld() {
-    return (this.locked && this.mouseHeld) || this.padDown(PAD.RT);
+    return (this.locked && this.mouseHeld) || this.padDown(PAD.RT) || this.tDown('attack');
   }
 
   reloadPressed() {
-    return this.keyPressed('KeyR') || this.padPressed(PAD.RB);
+    return this.keyPressed('KeyR') || this.padPressed(PAD.RB) || this.tTap('reload');
   }
 
   /** Number key 1-4 → weapon slot, or 0. */
@@ -279,21 +306,22 @@ export class Input {
     if (this.wheel) return Math.sign(this.wheel);
     if (this.padPressed(PAD.RIGHT)) return 1;
     if (this.padPressed(PAD.LEFT)) return -1;
+    if (this.tTap('weapon')) return 1;
     return 0;
   }
 
   /** Blink on purpose (Q / left trigger). Holding keeps the eyes shut. */
   blinkHeld() {
-    return this.key('KeyQ') || this.padDown(PAD.LT);
+    return this.key('KeyQ') || this.padDown(PAD.LT) || this.tDown('blink');
   }
 
   /** Switch which pager task is focused. */
   cycleTask() {
-    return this.keyPressed('Tab') || this.padPressed(PAD.Y);
+    return this.keyPressed('Tab') || this.padPressed(PAD.Y) || this.tTap('task');
   }
 
   pause() {
-    return this.keyPressed('Escape') || this.keyPressed('KeyP') || this.padPressed(PAD.START);
+    return this.keyPressed('Escape') || this.keyPressed('KeyP') || this.padPressed(PAD.START) || this.tTap('pause');
   }
 
   // ---- Menu actions (gamepad only; keyboard is handled by the UI) -------

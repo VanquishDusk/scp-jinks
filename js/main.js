@@ -13,6 +13,7 @@ const ui = new UI(settings);
 const profile = new Profile();
 
 const HINT_KBM = 'WASD move · Shift sprint · C crouch · E interact · Click attack · R reload · 1-4 weapons · Q blink · Esc pause';
+const HINT_TOUCH = 'Left side: move (push to the edge to sprint) · Right side: look · USE to interact or talk · II to pause';
 const HINT_PAD = 'L-stick move · LB sprint · B crouch · X interact · RT attack · RB reload · D-pad weapons · LT blink · Start pause';
 
 async function boot() {
@@ -21,10 +22,12 @@ async function boot() {
 
   let RetroRenderer;
   let Input;
+  let TouchControls;
   let Game;
   try {
     ({ RetroRenderer } = await import('./engine/RetroRenderer.js'));
     ({ Input } = await import('./engine/Input.js'));
+    ({ TouchControls } = await import('./engine/TouchControls.js'));
     ({ Game } = await import('./game/Game.js'));
   } catch (err) {
     console.error(err);
@@ -42,6 +45,9 @@ async function boot() {
     return;
   }
   const input = new Input(canvas);
+  // Phones and tablets get on-screen controls (nothing changes on desktop).
+  const touch = new TouchControls(input);
+  const wantLock = () => !input.usingPad && !input.usingTouch;
   const game = new Game(renderer, settings, ui, profile);
 
   try {
@@ -130,9 +136,13 @@ async function boot() {
     renderer.setDesaturate(0);
     ui.setFade(true);
     requestAnimationFrame(() => ui.setFade(false));
-    ui.showHint(input.usingPad ? HINT_PAD : HINT_KBM, 12);
+    ui.showHint(input.usingTouch ? HINT_TOUCH : input.usingPad ? HINT_PAD : HINT_KBM, 12);
+    // Full screen and landscape on phones (needs this tap to be allowed).
+    if (input.usingTouch && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
+    }
     input.keysPressed.clear();
-    if (!input.usingPad) input.requestLock();
+    if (wantLock()) input.requestLock();
     game.startShift();
   };
 
@@ -157,7 +167,7 @@ async function boot() {
     renderer.setDesaturate(0);
     input.keysPressed.clear();
     suppressPauseUntil = performance.now() + 250;
-    if (!input.usingPad) input.requestLock();
+    if (wantLock()) input.requestLock();
   };
 
   ui.on('role', startBriefing);
@@ -183,7 +193,7 @@ async function boot() {
     ui.showHud(true);
     input.keysPressed.clear();
     suppressPauseUntil = performance.now() + 250;
-    if (!input.usingPad) input.requestLock();
+    if (wantLock()) input.requestLock();
   };
   game.onOpenShop = (mode) => {
     if (state !== 'playing') return;
@@ -211,7 +221,7 @@ async function boot() {
     ui.showHud(true);
     input.keysPressed.clear();
     suppressPauseUntil = performance.now() + 250;
-    if (!input.usingPad) input.requestLock();
+    if (wantLock()) input.requestLock();
   };
   game.onTalk = (view) => {
     if (state === 'playing') {
@@ -322,7 +332,7 @@ async function boot() {
   };
 
   canvas.addEventListener('click', () => {
-    if (state === 'playing' && !input.locked) input.requestLock();
+    if (state === 'playing' && wantLock() && !input.locked) input.requestLock();
   });
 
   window.addEventListener('gamepadconnected', () => ui.updatePadStatus(true));
@@ -414,12 +424,13 @@ async function boot() {
           if (i > 0) input.clearEdges();
           game.update(dt, input);
         }
-        ui.setPrompt(game.interactTarget ? game.interactPrompt : null, input.usingPad);
+        ui.setPrompt(game.interactTarget ? game.interactPrompt : null, input.usingTouch ? 'touch' : input.usingPad);
+        touch.setUsable(!!game.interactTarget);
         ui.setHold(game.holdProgress || 0);
         ui.setStamina(game.player.stamina, game.player.exhausted);
         ui.setHealth(game.player.hp, game.player.maxHp);
         ui.setBlink(game.player.blinkActive, game.player.blink, game.player.eyesClosed);
-        ui.setCapture(!input.locked && !input.usingPad);
+        ui.setCapture(wantLock() && !input.locked);
         ui.setWeapon(game.combat.hud());
         trackerTimer -= dt;
         if (trackerTimer <= 0) {
@@ -471,6 +482,7 @@ async function boot() {
       bubbleList.length = 0;
       ui.setBubbles(bubbleList);
     }
+    touch.setVisible(state === 'playing');
     ui.tick(dt);
     const showHands = state === 'playing' || state === 'paused' || state === 'shop' || state === 'ending';
     renderer.render(game.scene, game.camera, showHands ? game.combat.view.scene : null);

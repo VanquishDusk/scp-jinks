@@ -69,6 +69,13 @@ Then open <http://localhost:8000>.
 
 Click the game view to capture the mouse. Pressing `Esc` releases it and pauses the game.
 
+**Phones and tablets** get on-screen controls automatically (they never appear on a computer with
+a mouse). Drag on the left side of the screen to move (push the stick all the way forward to
+sprint) and on the right side to look. Buttons: **FIRE**, **USE** (interact and talk; it lights up
+when there is something to use, hold it for hold actions), **JUMP**, **DUCK** (toggle), **RLD**,
+**BLINK** (hold), **WPN** (next weapon), **TASK** (switch pager task) and **II** (pause). Menus and
+conversations are tapped directly; tap outside a conversation to leave it. Landscape works best.
+
 ## How a shift works
 
 There is no story script. Every shift is a randomized sandbox on a 15-minute clock (06:00 to 14:00 site time):

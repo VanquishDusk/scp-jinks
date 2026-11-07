@@ -3,7 +3,7 @@
 export const GAME_TITLE = 'SCP: JINKS';
 export const GAME_SUBTITLE = 'Foundation Facility Simulation';
 export const SITE_NAME = 'SITE-██';
-export const VERSION = '0.7.0';
+export const VERSION = '0.8.0';
 
 /**
  * Economy tuning. Task rewards are multiplied by `reward` and failure

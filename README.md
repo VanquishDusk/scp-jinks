@@ -4,11 +4,16 @@ A single-player, retro voxel **SCP Foundation facility simulation** that runs en
 browser. It uses a low-resolution, dithered, PS2-era look with chunky voxel architecture, baked
 lighting and pixel-art textures that are generated in code.
 
-> **v0.7.0:** a replayable shift sandbox with two playable classes (Class-D Personnel and
-> Security Guard), plus an **SCP tycoon layer** with **18 SCPs** (Safe, Euclid and Keter), each
-> in its own purpose-built containment room, across a facility three times the size it was. Buy
-> SCPs, earn research grants, and survive the breaches. **Combat** adds melee and ranged weapons,
-> and the guards know how to contain SCPs as a team. The game is silent by design (no audio).
+> **v0.8.0 — a living facility:** about forty people now live and work on site, every shift,
+> with their own routines, habits, friendships and grudges. Researchers run their own tests,
+> guards nap on post, custodians mop and gossip, Class-D play cards in the commons, and you can
+> **talk to anyone** and get caught up in their problems.
+>
+> A replayable shift sandbox with two playable classes (Class-D Personnel and Security Guard),
+> plus an **SCP tycoon layer** with **18 SCPs** (Safe, Euclid and Keter), each in its own
+> purpose-built containment room. Buy SCPs, earn research grants, and survive the breaches.
+> **Combat** adds melee and ranged weapons, and the guards know how to contain SCPs as a team.
+> The game is silent by design (no audio).
 
 ## Play
 
@@ -58,6 +63,9 @@ Then open <http://localhost:8000>.
 | Blink (hold = shut) | `Q`                              | `LT`                       |
 | Pause               | `Esc` / `P`                      | `Start`                    |
 | Menus               | Arrows/WASD, `Enter`, `Esc`      | D-pad, `A`, `B`            |
+| Talk to someone     | `E` / `F` while looking at them  | `X`                        |
+| Pick an answer      | `1`–`9`, or arrows + `Enter`     | D-pad + `A`                |
+| Leave a conversation| `Esc`                            | `B`                        |
 
 Click the game view to capture the mouse. Pressing `Esc` releases it and pauses the game.
 
@@ -95,9 +103,11 @@ You start in a random cell. You may only be in D-Block (corridor, cells, commons
     while carrying it).
   - **Headcount, meal time** and a **medical check**.
   - **Lights out** near the end of the shift.
-- **Guards:** checkpoint guards and two roving patrols on routes that change every shift. If they
-  see you somewhere you are not authorized, they chase you. Break line of sight or get back
-  inside your authorized area to shake them off. If they catch you, the run is over.
+- **Guards:** checkpoint guards and two roving patrols. If they see you somewhere you are not
+  authorized, they chase you. Break line of sight or get back inside your authorized area to
+  shake them off. If they catch you, the run is over. Not every guard is the same, though, and
+  neither is everyone else: some staff will call security on you, some will pretend they never
+  saw you.
 - **Choices during events:** obey the lockdown order and sit it out in your cell, or take the
   **escape opportunity** while the security grid is down. To escape, find a Level 2 keycard, get
   through the maintenance access in Storage and climb to the surface. Once the grid comes back,
@@ -126,6 +136,55 @@ emergency counts as failed:
 - **Riot:** order the rioters back to their cells. Get too close and they hit you.
 
 Losing researchers on your watch costs Performance.
+
+## The people of Site-██
+
+The site has a permanent staff of about forty: researchers, a psychologist, doctors and a nurse,
+the Site Director and the office staff, custodians, technicians, a cook, the Head of Security and
+the officers, and the Class-D in the cells (the Class-D player gets a cell of their own). They are
+the **same people every shift**. They keep their names, their jobs, how they feel about each
+other and how they feel about **you**, and the site remembers who died, who escaped and who was
+walked out. When someone is gone for good, a new hire fills the position the next shift.
+
+**Nobody's personality is ever shown to you.** You find out who people are by watching what they
+do and listening to what they say:
+
+- Everyone has a routine on the 06:00–14:00 clock. They work at their own desk, lab bench,
+  server rack, kitchen or post, queue for coffee in the morning, eat lunch in the cafeteria or the
+  break room, take naps on the couches, sneak cigarettes in quiet corners, wander over to the
+  observation windows, chat with friends (and argue with people they can't stand). The Class-D
+  sleep, do push-ups, play cards, eat and pace. Custodians mop. Technicians kneel at the server
+  racks and the HCZ generators. The Head of Security does rounds and catches people slacking.
+- **Tests run without you.** Every few minutes a researcher books a test: a guard fetches a
+  Class-D from their cell and walks them across the site to Laboratory A, the test chamber or one
+  of the SCPs you own (SCP-914, 330, 207, 999, 294, 173), or the researcher interviews SCP-049,
+  SCP-079 or checks on SCP-529. The PA announces each one. Anyone can stand at the gallery and
+  watch; guards get a small stipend for it. Tests don't always go well, and how a test goes
+  depends on who is running it, who is guarding and who is being tested.
+- **Emergencies** send people running for safe rooms. Some hide under desks, some keep working,
+  some go and look. Evacuated staff come back once it's over, and someone always comes to cover
+  the bodies.
+- People notice what you do in front of them, and **word gets around** among their friends.
+
+### Talking
+
+Look at anyone and press `E` to talk. The world keeps running while you talk; you just stand
+still. What people say, what they will do for you and what they ask of you depends on who they
+are, who you are (Class-D or Security) and your history with them. You can ask how they are,
+ask for rumours (useful ones, sometimes), and react to what you hear.
+
+Some people have something on their mind. Hear them out and you may end up in a **personal
+plot**, shown on the pager as **PERSONAL**: errands and favors, things that get you paid, things
+that get you in trouble, ways out of D-Block, and offers you should maybe have refused. Not
+everyone who asks for help is being honest with you. Plots never cost you Standing just for
+ignoring them, but what you do in them has consequences.
+
+Class-D can try to bribe a guard (credits come from your orders), ask staff for help, or deal
+with the other inmates. Guards can take side jobs from colleagues, ask the Class-D what they've
+heard, and report what they know to the Head of Security.
+
+Your designation (`D-####` or `SEC-####`) carries over between shifts, so people remember you,
+until you die, escape, get caught or get dismissed. Then the next shift you are somebody new.
 
 ## SCPs (tycoon layer)
 
@@ -347,15 +406,28 @@ js/
       SecurityDirector.js  Security job pool and emergency responses
     Events.js              Breach, grid failure, power failure, riot; auto-resolution and alarms
     GuardAI.js             Officer/MTF combat and team containment (173 watch, 096 bag, riots)
+    life/
+      Life.js              The life simulation: needs, routines at activity spots, NPC chats,
+                           greetings, reactions to the player, emergencies, deaths and clean-up
+      roster.js            The ~40 positions on site and the persistent people who fill them
+                           (hidden traits, personal situations, relationships, memorial)
+      traits.js            Trait generation, how traits shape speech, name pools
+      spots.js             Activity spots derived from the furniture (desks, beds, benches...)
+      lines.js             Everything people say to each other and to you
+      experiments.js       Staff-run tests with Class-D subjects, visible to every class
+      talk.js              Conversations with the player and the personal plots
     combat/
       weapons.js           Weapon stats and voxel models
       Combat.js            Player weapons, hitscan/melee, NPC fire, tracers/blood/bullet holes
       Viewmodel.js         First-person hands and weapons (overlay pass)
-    NPC.js                 Voxel humanoids: walk, open doors, wander, lead, follow, board, die
+    NPC.js                 Voxel humanoids: walk, open (and close) doors, wander, lead, follow,
+                           poses (sit, eat, type, sleep, smoke, kneel, cower...), held items,
+                           speech bubbles, board, die
     NavGrid.js             Walkability grid, A* pathfinding and path smoothing
     Interactables.js       Terminals, pickups, first aid stations, specimen stands, triggers
     Hazards.js             Test chamber floor field and roaming anomalies
-    Profile.js             Saved Credits, shift statistics and the SCP roster
+    Profile.js             Saved Credits, shift statistics, the SCP roster, the staff roster and
+                           the player's designation
     scp/
       catalog.js           SCP prices, research grants, integrity decay, breach risk (18 SCPs)
       ScpManager.js        Roster, rooms (construction → commissioned), deliveries, income,
@@ -415,6 +487,7 @@ When you open the game with `?debug`, the browser console gets these helpers:
 - `__resetScps()`: clear the roster.
 - `__event('scp', id)`: breach a specific SCP (for example `'682'`).
 - `__speed(n)`: fast-forward the simulation.
+- `__game.life`: the life simulation (`people`, `experiments`, `talk`).
 
 ## Credits & licensing
 

@@ -100,7 +100,7 @@ export class Talk {
     const n = this.npc;
     if (!n) return;
     const g = this.game;
-    if (!n.alive || g.player.dead || flat(n.pos, g.player.pos) > 4.5 || g.ended || this.life.alarmed) {
+    if (!n.alive || g.player.dead || flat(n.pos, g.player.pos) > 4.5 || g.ended || this.life.alarmed || !this.life.canTalk(n)) {
       this.close();
       return;
     }

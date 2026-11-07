@@ -1314,7 +1314,8 @@ export class Life {
 
   // ---- Talking with the player ----------------------------------------------------------------
   canTalk(n) {
-    return !!n.person && n.alive && !n.zombie && !n.hostile && !n.pursuing && !n.rioting && !(n.ai && n.ai.job) && !this.game.ended;
+    const dir = this.game.director;
+    return !!n.person && n.alive && !n.zombie && !n.hostile && !n.pursuing && !n.rioting && !(n.ai && n.ai.job) && !this.game.ended && !(dir && dir.playerHostile);
   }
 
   /** Open a conversation with the player. */

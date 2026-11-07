@@ -393,6 +393,11 @@ export class NPC {
       game.life.talkTo(this);
       return { ok: true };
     }
+    // Nobody wants to chat with an armed, hostile intruder.
+    if (this.person && game.director && game.director.playerHostile) {
+      if (!this.bubble) this.say(this.kind === 'guard' ? 'Don\'t move!' : ['Please don\'t shoot!', 'Stay away from me!', 'I have a family!'][Math.floor(Math.random() * 3)], 2.5);
+      return { ok: true };
+    }
     if (this.chatter.length) {
       const line = this.chatter[this.chatIdx++ % this.chatter.length];
       game.say(this.name, line, 'voice');
